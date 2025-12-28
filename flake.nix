@@ -10,7 +10,7 @@
   in {
     devShells."x86_64-linux".default = pkgs.mkShell {
       buildInputs = with pkgs; [
-      dotnet_sdk_9 dotnet_runtime_9 avalonia gtk3 webkitgtk_4_1
+      dotnetCorePackages.sdk_9_0_1xx-bin dotnetCorePackages.runtime_9_0-bin dotnetPackages.Nuget avalonia gtk3 webkitgtk_4_1
       ];
     nativeBuildInputs = [ pkgs.pkg-config ];
     };
