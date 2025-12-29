@@ -1,5 +1,5 @@
 # D&D Helper
-This is a program designed for a small group of people. The program is designed to simplify calculations.
-`ТРЕПЕЩИ ГЮНТЕР ОРГАЛОРГ, Я ИЗОБРЕЛ... изобрёл... ... теперь я [БОЛЬШАЯ ШИШКА]!!!`
-> [!WARNING]
-> It is not suitable for the original D&D!
+The original program was created by two people, for a local group of people
+`i rewrite code to use avaloniaui and webkitgtk instead of WPF and webview2 just for myself`
+> [Attention]
+> this fork (as the original) maybe, will not suitable with original D&D
