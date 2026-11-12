@@ -1,28 +1,87 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
+
   <PropertyGroup>
     <OutputType>WinExe</OutputType>
-    <TargetFramework>net9.0</TargetFramework>
+    <TargetFramework>net10.0</TargetFramework>
     <Nullable>enable</Nullable>
-    <BuiltInComInteropSupport>true</BuiltInComInteropSupport>
-    <ApplicationManifest>app.manifest</ApplicationManifest>
-    <AvaloniaUseCompiledBindingsByDefault>true</AvaloniaUseCompiledBindingsByDefault>
+    <ImplicitUsings>enable</ImplicitUsings>
+
+    <AvaloniaUseCompiledBindingsByDefault>false</AvaloniaUseCompiledBindingsByDefault>
+
+    <!-- Версия приложения. Локальные сборки остаются 0.0.0-dev (в окне показываются как "dev"), release-workflow
+         подставляет номер из тега через параметр сборки Version. Из этого номера работает проверка обновлений. -->
+    <Version>0.0.0-dev</Version>
+
+    <ApplicationIcon>Assets/dndhelper.ico</ApplicationIcon>
+    <AppendTargetFrameworkToOutputPath>false</AppendTargetFrameworkToOutputPath>
+    <AppendRuntimeIdentifierToOutputPath>false</AppendRuntimeIdentifierToOutputPath>
+    <OutputPath>bin\$(Configuration)\Data\</OutputPath>
   </PropertyGroup>
 
   <ItemGroup>
-    <Folder Include="Models\" />
-    <AvaloniaResource Include="Assets\**" />
+    <AvaloniaResource Include="Assets/dndhelper.ico" />
   </ItemGroup>
 
   <ItemGroup>
-    <PackageReference Include="Avalonia" Version="11.3.6" />
-    <PackageReference Include="Avalonia.Desktop" Version="11.3.6" />
-    <PackageReference Include="Avalonia.Themes.Fluent" Version="11.3.6" />
-    <PackageReference Include="Avalonia.Fonts.Inter" Version="11.3.6" />
-    <!--Condition below is needed to remove Avalonia.Diagnostics package from build output in Release configuration.-->
-    <PackageReference Include="Avalonia.Diagnostics" Version="11.3.6">
-      <IncludeAssets Condition="'$(Configuration)' != 'Debug'">None</IncludeAssets>
-      <PrivateAssets Condition="'$(Configuration)' != 'Debug'">All</PrivateAssets>
-    </PackageReference>
-    <PackageReference Include="CommunityToolkit.Mvvm" Version="8.2.1" />
+    <PackageReference Include="Avalonia" Version="12.1.1" />
+    <PackageReference Include="Avalonia.Desktop" Version="12.1.1" />
+    <PackageReference Include="Avalonia.Fonts.Inter" Version="12.1.1" />
+
+    <!-- Экспериментальный нативный Wayland-бэкенд (не через XWayland). Появился официально
+         в 12.1 (было приватное превью и раньше). НЕ включается через UsePlatformDetect()
+         сам — только явным UseWayland() в Program.cs, см. там же. -->
+    <PackageReference Include="Avalonia.Wayland" Version="12.1.1" />
+    <!-- UsePlatformDetect() сама подключает HarfBuzz для шейпинга текста, а UseWayland()
+         в обход неё — нет: InvalidOperationException "No text shaping system configured"
+         при старте. Нужен явный UseHarfBuzz() в Program.cs. -->
+    <PackageReference Include="Avalonia.HarfBuzz" Version="12.1.1" />
+
+    <!-- Avalonia.Diagnostics убран: с выходом Avalonia 12 пакет больше не выпускается
+         (заменён платным Avalonia Accelerate), последняя версия так и осталась на 11.3.x.
+         В коде AttachDevTools() нигде не вызывался — пакет висел мёртвым весом ещё
+         до апгрейда, так что удаление ничего не меняет в поведении. -->
+
+    <PackageReference Include="CommunityToolkit.Mvvm" Version="8.4.0" />
+    <PackageReference Include="Material.Avalonia" Version="3.17.0" />
+
+    <!-- Использовался в MainWindow.axaml (xmlns:materialIcons + <materialIcons:MaterialIcon .../>)
+         как замена WPF MaterialDesignThemes PackIcon, но сам PackageReference забыли добавить —
+         из-за этого компилятор не мог сгенерировать поля для именованных MaterialIcon
+         (ImageIconCharacter/CountDamage_button/LoadingIcon) и падал с CS1061.
+         2.4.1 (версия под Avalonia 11) была и причиной TypeLoadException "Could not load type
+         Avalonia.Data.IBinding" при старте — implicit-тема MaterialIcon из старой версии пакета
+         всё ещё ссылалась на удалённый в Avalonia 12 интерфейс IBinding. 3.0.2 — подтверждённая
+         по метаданным пакета версия под Avalonia 12. -->
+    <PackageReference Include="Material.Icons.Avalonia" Version="3.0.2" />
+
+    <!-- Добавлено при портировании -->
+
+    <!-- DataGrid (Skills/Inventory/DamageGrid/CurrentSpells и т.д.) — версию держите в паре с Avalonia выше -->
+    <PackageReference Include="Avalonia.Controls.DataGrid" Version="12.1.1" />
+
+    <!-- Дневник (замена RichTextBox/FlowDocument). ВАЖНО: package ID и C#-namespace тут
+         разные — на NuGet пакет называется "Avalonia.AvaloniaEdit" (голый "AvaloniaEdit" —
+         снятый с публикации старый пакет 0.10.x под Avalonia 0.10), а в коде используется
+         `using AvaloniaEdit;` — имя сборки осталось прежним. -->
+    <PackageReference Include="Avalonia.AvaloniaEdit" Version="12.0.0" />
+
+    <!-- Встроенный браузер для вкладки "Справочники". Старый WebView.Avalonia (11.0.0.1) убран: он не совместим с
+         Avalonia 12 и ломал запуск (TypeLoadException про Avalonia.Data.IBinding). Его замена - официальный
+         Avalonia.Controls.WebView: с Avalonia 12 он открытый и бесплатный (раньше был платным Accelerate), использует
+         системный движок (WebView2 / WPE или WebKitGTK / WKWebView), Chromium не тащит. Если движка в системе нет,
+         LoadingReferenceBook открывает ссылку во внешнем браузере. После добавления пакета пересоздайте deps.json
+         (см. README). -->
+    <PackageReference Include="Avalonia.Controls.WebView" Version="12.0.1" />
+
+    <!-- Замена WPF MessageBox.Show (см. ViewModels/CheckUpdate.cs и другие места, см.
+         шпаргалку п.3). ВАЖНО: тут та же ситуация, что с AvaloniaEdit — package ID на NuGet
+         "MessageBox.Avalonia", а C#-namespace в коде "MsBox.Avalonia" (после ребрендинга
+         авторы оставили namespace прежним, а пакет переименовали). -->
+    <PackageReference Include="MessageBox.Avalonia" Version="12.0.0" />
   </ItemGroup>
+
+  <Target Name="CreateFolders" AfterTargets="Build">
+    <MakeDir Directories="$(OutputPath)" />
+  </Target>
+
 </Project>

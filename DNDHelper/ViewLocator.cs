@@ -1,31 +1,43 @@
-using System;
-using Avalonia.Controls;
+﻿using Avalonia.Controls;
 using Avalonia.Controls.Templates;
-using DNDHelper.ViewModels;
+using DNDHelper.ViewModels.Infrastructure;
+using System;
 
-namespace DNDHelper;
-
-public class ViewLocator : IDataTemplate
+namespace DNDHelper
 {
-
-    public Control? Build(object? param)
+    /// <summary>
+    /// Резолвит View по ViewModel-у соглашением по имени: единственная замена
+    /// подстроки "ViewModel" -> "View" в полном имени типа одновременно даёт нужный
+    /// результат и для namespace, и для суффикса класса:
+    ///   "DNDHelper.ViewModels.MainWindowViewModel" -> "DNDHelper.Views.MainWindowView"
+    /// Т.е. класс окна/юзерконтрола должен называться "XxxView" (не просто "Xxx"),
+    /// а лежать в namespace DNDHelper.Views. Это стандартное соглашение из шаблона
+    /// Avalonia MVVM — держитесь его при создании новых View, чтобы не городить
+    /// свой резолвер.
+    /// </summary>
+    public class ViewLocator : IDataTemplate
     {
-        if (param is null)
-            return null;
-        
-        var name = param.GetType().FullName!.Replace("ViewModel", "View", StringComparison.Ordinal);
-        var type = Type.GetType(name);
-
-        if (type != null)
+        public Control? Build(object? data)
         {
-            return (Control)Activator.CreateInstance(type)!;
-        }
-        
-        return new TextBlock { Text = "Not Found: " + name };
-    }
+            if (data is null)
+                return null;
 
-    public bool Match(object? data)
-    {
-        return data is ViewModelBase;
+            var name = data.GetType().FullName!.Replace("ViewModel", "View");
+            var type = Type.GetType(name);
+
+            if (type != null)
+            {
+                var control = (Control)Activator.CreateInstance(type)!;
+                control.DataContext = data;
+                return control;
+            }
+
+            return new TextBlock { Text = "Не найден View для: " + name };
+        }
+
+        public bool Match(object? data)
+        {
+            return data is ViewModelBase;
+        }
     }
 }

@@ -1,31 +1,27 @@
-﻿using DNDHelper.Modules.Character;
-using DNDHelper.Modules.Config;
-using DNDHelper.Modules.Inventory;
-using DNDHelper.Modules.Settings;
-using DNDHelper.Modules.Сharacteristics;
-using DNDHelper.Windows;
+﻿using Avalonia;
+using Avalonia.Controls;
+using Avalonia.Controls.ApplicationLifetimes;
+using Avalonia.Input;
+using Avalonia.Interactivity;
+using Avalonia.Media;
+using Avalonia.VisualTree;
+using DNDHelper.ViewModels.Character;
+using DNDHelper.ViewModels.Config;
+using DNDHelper.ViewModels.Inventory;
+using DNDHelper.ViewModels.Settings;
+using DNDHelper.ViewModels.Сharacteristics;
+using DNDHelper.Views;
 using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
-using System.Diagnostics;
-using System.Globalization;
 using System.IO;
 using System.Linq;
-using System.Text;
-using System.Text.Json;
-using System.Threading.Tasks;
-using System.Windows;
-using System.Windows.Controls;
-using System.Windows.Data;
-using System.Windows.Input;
-using System.Windows.Media;
-using static MaterialDesignThemes.Wpf.Theme;
 
-namespace DNDHelper.Modules.MagicSpells
+namespace DNDHelper.ViewModels.MagicSpells
 {
 	internal class MagicSpells
     {
-		Main main = Main.Instance;
+		MainWindow main = MainWindow.Instance;
 		public static ObservableCollection<Cast> AllCasts = new ObservableCollection<Cast>();
 		public static ObservableCollection<string> CurrentCastsNames => DataManager.DataSave.CurrentCastsNames;
 
@@ -37,9 +33,12 @@ namespace DNDHelper.Modules.MagicSpells
 			main.MoveSpellAll.Click += MoveSpellAll_Click;
             main.MoveSpellCurrent.Click += MoveSpellCurrent_Click;
             main.DataGridAllSpells.SelectionChanged += DataGridAllSpells_SelectionChanged;
-			main.DataGridAllSpells.PreviewMouseLeftButtonDown += DataGridAllSpells_PreviewMouseLeftButtonDown;
+
+            // WPF PreviewMouseLeftButtonDown -> тоннелируемый PointerPressed (см. Skills.cs/ItemBaffsScript.cs).
+            main.DataGridAllSpells.AddHandler(InputElement.PointerPressedEvent, DataGridAllSpells_PreviewMouseLeftButtonDown, Avalonia.Interactivity.RoutingStrategies.Tunnel);
 			main.DataGridCurrentSpells.SelectionChanged += DataGridCurrentSpells_SelectionChanged;
-			main.DataGridCurrentSpells.PreviewMouseLeftButtonDown += DataGridCurrentSpells_PreviewMouseLeftButtonDown;
+            main.DataGridCurrentSpells.AddHandler(InputElement.PointerPressedEvent, DataGridCurrentSpells_PreviewMouseLeftButtonDown, Avalonia.Interactivity.RoutingStrategies.Tunnel);
+
             main.CatalyzerQualitySelect_cb.SelectionChanged += CatalyzerQualitySelect_cb_SelectionChanged;
             main.CatalyzerSelect_cb.SelectionChanged += CatalyzerSelect_cb_SelectionChanged;
             main.SchoolSelect_cb.SelectionChanged += SchoolSelect_cb_SelectionChanged;
@@ -51,7 +50,7 @@ namespace DNDHelper.Modules.MagicSpells
             main.plusMagicBullet.Click += PlusMagicBullet_Click;
             main.ResetMagicBullet.Click += ResetMagicBullet_Click;
 
-            main.DataGridCurrentSpells.ContextMenuOpening += DataGridCurrentSpells_ContextMenuOpening;
+            main.DataGridCurrentSpells.ContextMenu!.Opening += (_, _) => DataGridCurrentSpells_ContextMenuOpening();
             main.AddInPackSpellCurrent.Click += AddInPackSpellCurrent_Click;
         }
 
@@ -61,7 +60,7 @@ namespace DNDHelper.Modules.MagicSpells
 			if (selected != -1)
 			{
                 int indexCast = main.DataGridCurrentSpells.SelectedIndex;
-                var cast = main.DataGridCurrentSpells.Items[indexCast] as Cast;
+                var cast = CurrentCasts[indexCast];
 				cast.IsPack = !cast.IsPack;
 
 				if (cast.IsPack)
@@ -72,15 +71,15 @@ namespace DNDHelper.Modules.MagicSpells
             }
 		}
 
-        private void DataGridCurrentSpells_ContextMenuOpening(object sender, System.Windows.Controls.ContextMenuEventArgs e)
+        private void DataGridCurrentSpells_ContextMenuOpening()
         {
             int selected = main.DataGridCurrentSpells.SelectedIndex;
             if (selected != -1)
             {
                 int indexCast = main.DataGridCurrentSpells.SelectedIndex;
-                var cast = main.DataGridCurrentSpells.Items[indexCast] as Cast;
+                var cast = (main.DataGridCurrentSpells.SelectedItem as Cast) ?? CurrentCasts[indexCast];
 
-                main.AddInPackSpellCurrent.Visibility = Visibility.Visible;
+                main.AddInPackSpellCurrent.IsVisible = true;
                 if (cast.IsPack)
 				{
 					main.AddInPackSpellCurrent.Header = "Из колоду";
@@ -91,7 +90,7 @@ namespace DNDHelper.Modules.MagicSpells
                 }
             }
 			else
-                main.AddInPackSpellCurrent.Visibility = Visibility.Collapsed;
+                main.AddInPackSpellCurrent.IsVisible = false;
         }
 
         private void CurrentCastsNames_CollectionChanged(object? sender, System.Collections.Specialized.NotifyCollectionChangedEventArgs e)
@@ -103,9 +102,24 @@ namespace DNDHelper.Modules.MagicSpells
 		private int _clickCountAll = 0;
 		private object _lastSelectedItemCurrent;
 		private int _clickCountCurrent = 0;
-		private void DataGridCurrentSpells_PreviewMouseLeftButtonDown(object sender, MouseButtonEventArgs e)
+
+        // NOTE: WPF ItemsControl.ContainerFromElement(dataGrid, e.OriginalSource) искал строку
+        // DataGridRow по конкретному визуальному элементу под курсором. В Avalonia у DataGrid нет
+        // такого статического метода - поднимаемся по визуальному дереву вручную тем же приёмом
+        // FindParent<T>, что и в ItemBaffsScript.cs/Skills.cs.
+        private static T FindParent<T>(Visual child) where T : Visual
+        {
+            while (child != null && !(child is T))
+                child = child.GetVisualParent();
+            return child as T;
+        }
+
+        private void DataGridCurrentSpells_PreviewMouseLeftButtonDown(object sender, PointerPressedEventArgs e)
 		{
-			var row = ItemsControl.ContainerFromElement((System.Windows.Controls.DataGrid)sender, e.OriginalSource as DependencyObject) as DataGridRow;
+            if (!e.GetCurrentPoint(main.DataGridCurrentSpells).Properties.IsLeftButtonPressed)
+                return;
+
+            var row = FindParent<DataGridRow>(e.Source as Visual);
 
 			if (row == null)
 			{
@@ -114,13 +128,13 @@ namespace DNDHelper.Modules.MagicSpells
 				return;
 			}
 
-			if (Equals(_lastSelectedItemCurrent, row.Item))
+			if (Equals(_lastSelectedItemCurrent, row.DataContext))
 			{
 				_clickCountCurrent++;
 			}
 			else
 			{
-				_lastSelectedItemCurrent = row.Item;
+				_lastSelectedItemCurrent = row.DataContext;
 				_clickCountCurrent = 1;
 			}
 
@@ -128,17 +142,17 @@ namespace DNDHelper.Modules.MagicSpells
 			{
 				if (_clickCountCurrent == 2)
 				{
-					main.DataGridCurrentSpells.SetValue(Grid.RowSpanProperty, 4);
-					main.CurrentSpellDescription.Visibility = Visibility.Collapsed;
+					Grid.SetRowSpan(main.DataGridCurrentSpells, 4);
+					main.CurrentSpellDescription.IsVisible = false;
 					e.Handled = true;
 				}
 				else if (_clickCountCurrent == 3)
 				{
 					if (main.DataGridCurrentSpells.SelectedIndex != -1)
 					{
-						main.DataGridCurrentSpells.SetValue(Grid.RowSpanProperty, 2);
-						main.CurrentSpellDescription.Visibility = Visibility.Visible;
-						var cast = main.DataGridCurrentSpells.Items[main.DataGridCurrentSpells.SelectedIndex] as Cast;
+						Grid.SetRowSpan(main.DataGridCurrentSpells, 2);
+						main.CurrentSpellDescription.IsVisible = true;
+						var cast = CurrentCasts[main.DataGridCurrentSpells.SelectedIndex];
 						main.CurrentSpellDescription.Text = cast.SpellDescription;
 					}
 
@@ -152,16 +166,19 @@ namespace DNDHelper.Modules.MagicSpells
 		{
 			if (main.DataGridCurrentSpells.SelectedIndex != -1)
 			{
-				main.DataGridCurrentSpells.SetValue(Grid.RowSpanProperty, 2);
-				main.CurrentSpellDescription.Visibility = Visibility.Visible;
-				var cast = main.DataGridCurrentSpells.Items[main.DataGridCurrentSpells.SelectedIndex] as Cast;
+				Grid.SetRowSpan(main.DataGridCurrentSpells, 2);
+				main.CurrentSpellDescription.IsVisible = true;
+				var cast = CurrentCasts[main.DataGridCurrentSpells.SelectedIndex];
 				main.CurrentSpellDescription.Text = cast.SpellDescription;
 			}
 		}
 
-		private void DataGridAllSpells_PreviewMouseLeftButtonDown(object sender, MouseButtonEventArgs e)
+		private void DataGridAllSpells_PreviewMouseLeftButtonDown(object sender, PointerPressedEventArgs e)
 		{
-			var row = ItemsControl.ContainerFromElement((System.Windows.Controls.DataGrid)sender, e.OriginalSource as DependencyObject) as DataGridRow;
+            if (!e.GetCurrentPoint(main.DataGridAllSpells).Properties.IsLeftButtonPressed)
+                return;
+
+            var row = FindParent<DataGridRow>(e.Source as Visual);
 
 			if (row == null)
 			{
@@ -170,13 +187,13 @@ namespace DNDHelper.Modules.MagicSpells
 				return;
 			}
 
-			if (Equals(_lastSelectedItemAll, row.Item))
+			if (Equals(_lastSelectedItemAll, row.DataContext))
 			{
 				_clickCountAll++;
 			}
 			else
 			{
-				_lastSelectedItemAll = row.Item;
+				_lastSelectedItemAll = row.DataContext;
 				_clickCountAll = 1;
 			}
 
@@ -184,17 +201,17 @@ namespace DNDHelper.Modules.MagicSpells
 			{
 				if (_clickCountAll == 2)
 				{
-					main.DataGridAllSpells.SetValue(Grid.RowSpanProperty, 4);
-					main.AllSpellDescription.Visibility = Visibility.Collapsed;
+					Grid.SetRowSpan(main.DataGridAllSpells, 4);
+					main.AllSpellDescription.IsVisible = false;
 					e.Handled = true;
 				}
 				else if (_clickCountAll == 3)
 				{
 					if (main.DataGridAllSpells.SelectedIndex != -1)
 					{
-						main.DataGridAllSpells.SetValue(Grid.RowSpanProperty, 2);
-						main.AllSpellDescription.Visibility = Visibility.Visible;
-						var cast = main.DataGridAllSpells.Items[main.DataGridAllSpells.SelectedIndex] as Cast;
+						Grid.SetRowSpan(main.DataGridAllSpells, 2);
+						main.AllSpellDescription.IsVisible = true;
+						var cast = CurrentAllCasts[main.DataGridAllSpells.SelectedIndex];
 						main.AllSpellDescription.Text = cast.SpellDescription;
 					}
 
@@ -207,16 +224,16 @@ namespace DNDHelper.Modules.MagicSpells
 		{ 
 			if (main.DataGridAllSpells.SelectedIndex != -1)
 			{
-				main.DataGridAllSpells.SetValue(Grid.RowSpanProperty, 2);
-				main.AllSpellDescription.Visibility = Visibility.Visible;
-				var cast = main.DataGridAllSpells.Items[main.DataGridAllSpells.SelectedIndex] as Cast;
+				Grid.SetRowSpan(main.DataGridAllSpells, 2);
+				main.AllSpellDescription.IsVisible = true;
+				var cast = CurrentAllCasts[main.DataGridAllSpells.SelectedIndex];
 				main.AllSpellDescription.Text = cast.SpellDescription;
 			}
 		}
 
 		public static void RepositoryLoad()
 		{
-			string spells = Main.PathMain + $"Cache/{DataManager.DataSave.SelectedRepository}/Spells.txt";
+			string spells = MainWindow.PathData + $"Cache/{DataManager.DataSave.SelectedRepository}/Spells.txt";
 			if (!File.Exists(spells))
 				return;
 
@@ -394,7 +411,7 @@ namespace DNDHelper.Modules.MagicSpells
             int roll = 0;
 			int addRoll = PlayerClass.AddRollMagic;
 			int indexInt = int.Parse(indexSchool);
-			int selectedSchool = Main.Instance.SchoolSelect_cb.SelectedIndex;
+			int selectedSchool = MainWindow.Instance.SchoolSelect_cb.SelectedIndex;
             switch (indexSchool)
             {
                 case "-1":
@@ -421,7 +438,7 @@ namespace DNDHelper.Modules.MagicSpells
 				return;
 
 			int indexAllCast = main.DataGridAllSpells.SelectedIndex;
-            var cast = main.DataGridAllSpells.Items[indexAllCast] as Cast;
+            var cast = CurrentAllCasts[indexAllCast];
 
             CurrentCastsNames.Add(cast.SpellName);
             CurrentCasts.Add(cast);
@@ -437,7 +454,7 @@ namespace DNDHelper.Modules.MagicSpells
                 return;
 
             int indexCast = main.DataGridCurrentSpells.SelectedIndex;
-			var cast = main.DataGridCurrentSpells.Items[indexCast] as Cast;
+			var cast = CurrentCasts[indexCast];
 
             CurrentAllCasts.Add(cast);
 
@@ -449,10 +466,13 @@ namespace DNDHelper.Modules.MagicSpells
 
         private void AddCustomSpellCurrent_Click(object sender, RoutedEventArgs e)
 		{
-			bool isCustomSpellsOpen = Application.Current.Windows.OfType<CustomSpells>().Any();
-			if (isCustomSpellsOpen)
+            // WPF Application.Current.Windows.OfType<CustomSpells>() -> в Avalonia список открытых
+            // окон живёт в IClassicDesktopStyleApplicationLifetime.Windows, а не в Application.Current.
+            var lifetime = Application.Current?.ApplicationLifetime as IClassicDesktopStyleApplicationLifetime;
+            var existing = lifetime?.Windows.OfType<CustomSpells>().FirstOrDefault();
+			if (existing != null)
 			{
-				Application.Current.Windows.OfType<CustomSpells>().First().Activate();
+                existing.Activate();
 			}
 			else
 			{
@@ -486,10 +506,10 @@ namespace DNDHelper.Modules.MagicSpells
 			if (wisdom >= 20)
 				wisdom = 20;
 
-            MaxMagicBullet = PlayerClass.SelectedClassData.AddMagBullet + (int)(wisdom * 0.05) + Modules.Inventory.ItemBaffsListScript.ItemBaffs[42][0]+TreeSkills.MagicBullet;
+            MaxMagicBullet = PlayerClass.SelectedClassData.AddMagBullet + (int)(wisdom * 0.05) + ItemBaffsListScript.ItemBaffs[42][0]+TreeSkills.MagicBullet;
 
-            Main.Instance.MagicBulletAll_textblock.Text = MaxMagicBullet.ToString();
-            Main.Instance.MagicBulletCurrent_textblock.Text = (MaxMagicBullet - DataManager.DataSave.SubtractMagicBullet).ToString();
+            MainWindow.Instance.MagicBulletAll_textblock.Text = MaxMagicBullet.ToString();
+            MainWindow.Instance.MagicBulletCurrent_textblock.Text = (MaxMagicBullet - DataManager.DataSave.SubtractMagicBullet).ToString();
         }
     }
 	public class Cast
@@ -502,9 +522,9 @@ namespace DNDHelper.Modules.MagicSpells
 		public string SpellDescription { get; set; }
 		public string NumberType { get; set; } = "0";
 		public bool IsNature { get; set; } = false;	
-        public Brush colorbrush { get; set; } = new SolidColorBrush(Settings.Settings.SelectedTheme[1]);
-		public Brush colorbrushnature { get; set; } = new SolidColorBrush(Settings.Settings.SelectedTheme[1]);
-        public Brush colorbrushPack { get; set; } = new SolidColorBrush(Settings.Settings.SelectedTheme[1]);
+        public IBrush colorbrush { get; set; } = new SolidColorBrush(Settings.Settings.SelectedTheme[1]);
+		public IBrush colorbrushnature { get; set; } = new SolidColorBrush(Settings.Settings.SelectedTheme[1]);
+        public IBrush colorbrushPack { get; set; } = new SolidColorBrush(Settings.Settings.SelectedTheme[1]);
         public bool IsPack { get; set; } = false;
 	} 
 }

@@ -1,25 +1,22 @@
-﻿using DNDHelper.Windows;
+﻿using Avalonia.Controls;
+using Avalonia.Input;
 using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
-using System.Windows;
-using System.Windows.Input;
-using static System.Net.Mime.MediaTypeNames;
 
-namespace DNDHelper.Modules
+namespace DNDHelper.ViewModels
 {
 	public class TextboxProcessing
 	{
-		public static void WholeNumbersOnly(object sender, TextCompositionEventArgs e)
+		public static void WholeNumbersOnly(object sender, TextInputEventArgs e)
 		{
-			var textBox = sender as System.Windows.Controls.TextBox;
+			var textBox = sender as TextBox;
 			int caretIndex = textBox.CaretIndex;
-			string newText = textBox.Text.Replace(" ", "");
-			if (textBox.Text != newText)
+			// В Avalonia у пустого TextBox Text == null (в WPF - ""), поэтому читаем через ?? "".
+			string text = textBox.Text ?? "";
+			string newText = text.Replace(" ", "");
+			if (text != newText)
 			{
 				textBox.Text = newText;
+				text = newText;
 				textBox.CaretIndex = Math.Min(caretIndex, newText.Length);
 			}
 			if (string.IsNullOrEmpty(e.Text))
@@ -35,7 +32,7 @@ namespace DNDHelper.Modules
 			}
 			if (e.Text == "-")
 			{
-				if (textBox.SelectionStart == 0 && !textBox.Text.Contains("-"))
+				if (textBox.SelectionStart == 0 && !text.Contains("-"))
 				{
 					e.Handled = false;
 				}
@@ -47,14 +44,17 @@ namespace DNDHelper.Modules
 			}
 			e.Handled = true;
 		}
-		public static void DoubleNumbersOnly(object sender, TextCompositionEventArgs e)
+		public static void DoubleNumbersOnly(object sender, TextInputEventArgs e)
 		{
-			var textBox = sender as System.Windows.Controls.TextBox;
+			var textBox = sender as TextBox;
 			int caretIndex = textBox.CaretIndex;
-			string newText = textBox.Text.Replace(" ", "");
-			if (textBox.Text != newText)
+			// В Avalonia у пустого TextBox Text == null (в WPF - ""), поэтому читаем через ?? "".
+			string text = textBox.Text ?? "";
+			string newText = text.Replace(" ", "");
+			if (text != newText)
 			{
 				textBox.Text = newText;
+				text = newText;
 				textBox.CaretIndex = Math.Min(caretIndex, newText.Length);
 			}
 
@@ -67,17 +67,17 @@ namespace DNDHelper.Modules
 			if (e.Text == "-")
 			{
 				bool isAtStart = textBox.SelectionStart == 0;
-				bool hasMinus = textBox.Text.Contains("-");
+				bool hasMinus = text.Contains("-");
 				e.Handled = !(isAtStart && !hasMinus);
 				return;
 			}
 
 			if (e.Text == ",")
 			{
-				bool hasComma = textBox.Text.Contains(",");
+				bool hasComma = text.Contains(",");
 				bool insertingBeforeMinus =
 					textBox.SelectionStart > 0 &&
-					textBox.Text[textBox.SelectionStart - 1] == '-';
+					text[textBox.SelectionStart - 1] == '-';
 				e.Handled = hasComma || insertingBeforeMinus;
 				return;
 			}
@@ -85,9 +85,9 @@ namespace DNDHelper.Modules
 			if (char.IsDigit(e.Text, 0))
 			{
 				string simulatedText =
-					textBox.Text.Substring(0, textBox.SelectionStart) +
+					text.Substring(0, Math.Min(textBox.SelectionStart, text.Length)) +
 					e.Text +
-					textBox.Text.Substring(textBox.SelectionStart);
+					text.Substring(Math.Min(textBox.SelectionStart, text.Length));
 				string numPart = simulatedText.StartsWith("-") ? simulatedText.Substring(1) : simulatedText;
 				if (numPart.StartsWith("0") && numPart.Length > 1 && numPart[1] != ',')
 				{
@@ -100,6 +100,20 @@ namespace DNDHelper.Modules
 			}
 			e.Handled = true;
 		}
+
+		/// <summary>
+		/// Замена WPF DataObject.Pasting: в Avalonia нет отменяемого события вставки,
+		/// поэтому вместо валидации содержимого буфера блокируем саму комбинацию Ctrl+V.
+		/// Используется там, где в оригинале Pasting безусловно вызывал e.CancelCommand().
+		/// </summary>
+		public static void BlockPaste(object sender, KeyEventArgs e)
+		{
+			if (e.Key == Key.V && e.KeyModifiers == KeyModifiers.Control)
+			{
+				e.Handled = true;
+			}
+		}
+
 		public static void IsTextTrimmed()
 		{
 

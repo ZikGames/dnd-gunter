@@ -1,17 +1,19 @@
-﻿using DNDHelper.Modules.Config;
-using DNDHelper.Modules.Settings;
-using DNDHelper.Modules.Сharacteristics;
-using DNDHelper.Windows;
+﻿using DNDHelper.ViewModels.Config;
+using DNDHelper.ViewModels.Settings;
+using DNDHelper.ViewModels.Сharacteristics;
+using DNDHelper.Views;
+using System;
+using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.ComponentModel;
 using System.Runtime.CompilerServices;
 using System.Text.Json;
 
-namespace DNDHelper.Modules.Character
+namespace DNDHelper.ViewModels.Character
 {
     public class TreeSkills
     {
-        Main main = Main.Instance;
+        MainWindow main = MainWindow.Instance;
 
         int points = 0;
 
@@ -26,7 +28,7 @@ namespace DNDHelper.Modules.Character
         public TreeSkills()
         {
             main.DataGridTreeDevelopment.ItemsSource = TreeGrids;
-            ClearStats();    
+            ClearStats();
         }
 
         private void ClearStats()
@@ -35,27 +37,36 @@ namespace DNDHelper.Modules.Character
             for (int i = 0; i < 30; i++)
             {
                 Stats.Add(new Stat { Value = 0, Roll = 0 });
-            }           
+            }
         }
 
-        public void AddTreeLevel()
+        // Кнопки +/- лежат в ячейках DataGrid: в Avalonia они не выделяют строку (SelectedIndex == -1),
+        // поэтому строку берём из DataContext кнопки, выделение - запасной вариант.
+        private TreeGrid? ResolveTreeRow(object? rowItem)
         {
-            int selectedIndex = main.DataGridTreeDevelopment.SelectedIndex;
+            if (rowItem is TreeGrid t) return t;
+            int i = main.DataGridTreeDevelopment.SelectedIndex;
+            return i >= 0 && i < TreeGrids.Count ? TreeGrids[i] : null;
+        }
 
-            if (points > 0 && TreeGrids[selectedIndex].TreeLevel < 5)
+        public void AddTreeLevel(object? rowItem = null)
+        {
+            var row = ResolveTreeRow(rowItem);
+
+            if (row != null && points > 0 && row.TreeLevel < 5)
             {
-                TreeGrids[selectedIndex].TreeLevel++;
+                row.TreeLevel++;
                 UpdateTreeLevel();
             }
         }
 
-        public void SubstractTreeLevel()
+        public void SubstractTreeLevel(object? rowItem = null)
         {
-            int selectedIndex = main.DataGridTreeDevelopment.SelectedIndex;
+            var row = ResolveTreeRow(rowItem);
 
-            if (TreeGrids[selectedIndex].TreeLevel > 0)
+            if (row != null && row.TreeLevel > 0)
             {
-                TreeGrids[selectedIndex].TreeLevel--;
+                row.TreeLevel--;
                 UpdateTreeLevel();
             }
         }
@@ -72,10 +83,10 @@ namespace DNDHelper.Modules.Character
             UpdateAddStats();
 
         }
-        
+
         public void UpdateDisplayPoints()
         {
-            if (main.EditMode_button.IsChecked)
+            if (main.EditMode_button.IsChecked == true)
                 main.DataGridTreeDevelopment.Columns[0].Header = "Название Очков: " + points;
             else
                 main.DataGridTreeDevelopment.Columns[0].Header = "Название";
@@ -89,15 +100,15 @@ namespace DNDHelper.Modules.Character
             MagicBullet = 0;
             int i = 0;
             if (PlayerClass.SelectedClassData.ClassTrees.Count > 0)
-            foreach (var item in PlayerClass.SelectedClassData.ClassTrees[0])
-            {
+                foreach (var item in PlayerClass.SelectedClassData.ClassTrees[0])
+                {
                     for (int j = 0; j < TreeGrids[i].TreeLevel; j++)
                         foreach (var stage in PlayerClass.SelectedClassData.ClassTrees[0][item.Key][0][j][0])
                             FindAddStats(stage.Key, stage.Value, TreeGrids[i].TreeName);
-                i++;
-            }
+                    i++;
+                }
 
-            Main.Characteristics.UpdateAllCharacterisitc();
+            MainWindow.Characteristics.UpdateAllCharacterisitc();
             Character.Skills.ReloadDataGridSkills();
             MagicSpells.MagicSpells.UpdateMagicBullet();
         }
@@ -139,27 +150,27 @@ namespace DNDHelper.Modules.Character
                 case "множительуронамагии":
                     break;
                 case "дебаф_к_пулям":
-					if (value is JsonElement elementInt1)
-						if (elementInt1.ValueKind == JsonValueKind.Number && elementInt1.TryGetInt32(out int number))
-							MagicBullet += number;
-					break;
+                    if (value is JsonElement elementInt1)
+                        if (elementInt1.ValueKind == JsonValueKind.Number && elementInt1.TryGetInt32(out int number))
+                            MagicBullet += number;
+                    break;
             }
 
         }
-        
+
 
         public void SetClassTree()
         {
-            int[] levels = new int[] { TreeGrids[0].TreeLevel, TreeGrids[1].TreeLevel, TreeGrids[2].TreeLevel }; 
+            int[] levels = new int[] { TreeGrids[0].TreeLevel, TreeGrids[1].TreeLevel, TreeGrids[2].TreeLevel };
 
             TreeGrids.Clear();
             int i = 0;
             foreach (var item in PlayerClass.SelectedClassData.ClassTrees[0])
             {
-                TreeGrids.Add(new TreeGrid() { TreeName = item.Key, TreeLevel = levels[i] } );
+                TreeGrids.Add(new TreeGrid() { TreeName = item.Key, TreeLevel = levels[i] });
                 i++;
             }
-            
+
             UpdateTreeLevel();
         }
 

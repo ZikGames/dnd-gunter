@@ -1,10 +1,7 @@
-﻿using System.Windows.Media;
+﻿using Avalonia.Media;
 
-
-namespace DNDHelper.Modules.Settings
+namespace DNDHelper.ViewModels.Settings
 {
-
-
     public static class Settings
     {
         public static bool IsDarkTheme = false;

@@ -1,20 +1,24 @@
-﻿using DNDHelper.Modules.Character;
-using DNDHelper.Modules.Сharacteristics;
-using DNDHelper.Windows;
+﻿using Avalonia;
+using Avalonia.Controls;
+using Avalonia.Input;
+using Avalonia.Interactivity;
+using Avalonia.VisualTree;
+using DNDHelper.ViewModels.Character;
+using DNDHelper.ViewModels.Сharacteristics;
+using DNDHelper.Views;
+using MsBox.Avalonia;
+using MsBox.Avalonia.Enums;
 using System.Collections.ObjectModel;
 using System.ComponentModel;
-using System.Diagnostics;
 using System.Runtime.CompilerServices;
-using System.Windows;
-using System.Windows.Controls;
-using static DNDHelper.Modules.Inventory.InventoryLoot;
+using static DNDHelper.ViewModels.Inventory.InventoryLoot;
 
-namespace DNDHelper.Modules.Inventory
+namespace DNDHelper.ViewModels.Inventory
 {
     public class ItemBaffsListScript
     {
 
-        Main main = Main.Instance;
+        MainWindow main = MainWindow.Instance;
         public static ObservableCollection<ItemBaff> ItemBaffsList { get; set; } = new();
         public static List<int[]> ItemBaffs = new(50);
         public ItemBaffsListScript() 
@@ -23,9 +27,16 @@ namespace DNDHelper.Modules.Inventory
 
             main.DataGridItemBaffsList.BeginningEdit += DataGridItemBaffsList_BeginningEdit; ;
             main.DataGridItemBaffsList.CellEditEnding += DataGridItemBaffsList_CellEditEnding; ;
-            main.DataGridItemBaffsList.PreviewMouseLeftButtonDown += DataGridItemBaffsList_PreviewMouseButtonDown;
-            main.DataGridItemBaffsList.PreviewMouseRightButtonDown += DataGridItemBaffsList_PreviewMouseButtonDown;
-            main.DataGridItemBaffsList.ContextMenuOpening += DataGridItemBaffsList_ContextMenuOpening;
+
+            // WPF PreviewMouseLeftButtonDown + PreviewMouseRightButtonDown - два отдельных
+            // события, оба вели на один и тот же обработчик (без проверки кнопки). В Avalonia
+            // это один тоннелируемый PointerPressed, покрывающий все кнопки мыши сразу.
+            main.DataGridItemBaffsList.AddHandler(
+                InputElement.PointerPressedEvent,
+                DataGridItemBaffsList_PreviewMouseButtonDown,
+                RoutingStrategies.Tunnel);
+
+            main.DataGridItemBaffsList.ContextMenu!.Opening += (_, _) => DataGridItemBaffsList_ContextMenuOpening();
             main.AddMenuItemBaff.Click += AddMenuItemBaff_Click;
             main.DeleteMenuItemBaff.Click += DeleteMenuItemBaff_Click;
 
@@ -39,7 +50,7 @@ namespace DNDHelper.Modules.Inventory
 
         private void DataGridItemBaffsList_CellEditEnding(object? sender, DataGridCellEditEndingEventArgs e)
         {
-            if (e.EditingElement is System.Windows.Controls.TextBox textBox)
+            if (e.EditingElement is TextBox textBox)
             {
                 string newValue = textBox.Text;
 
@@ -50,31 +61,31 @@ namespace DNDHelper.Modules.Inventory
 
 
 
-        private void DataGridItemBaffsList_PreviewMouseButtonDown(object sender, System.Windows.Input.MouseButtonEventArgs e)
+        private void DataGridItemBaffsList_PreviewMouseButtonDown(object sender, PointerPressedEventArgs e)
         {
-            var cell = FindParent<DataGridCell>(e.OriginalSource as DependencyObject);
+            var cell = FindParent<DataGridCell>(e.Source as Visual);
 
             if (cell == null)
                 main.DataGridItemBaffsList.SelectedIndex = -1;
         }
 
-        private void DataGridItemBaffsList_ContextMenuOpening(object sender, ContextMenuEventArgs e)
+        private void DataGridItemBaffsList_ContextMenuOpening()
         {
             int selectedIndex = main.DataGridItemBaffsList.SelectedIndex;
             if (selectedIndex != -1)
             {
-                main.AddMenuItemBaff.Visibility = Visibility.Visible;
-                main.DeleteMenuItemBaff.Visibility = Visibility.Visible;
+                main.AddMenuItemBaff.IsVisible = true;
+                main.DeleteMenuItemBaff.IsVisible = true;
             }
             else
             {
-                main.AddMenuItemBaff.Visibility = Visibility.Visible;
-                main.DeleteMenuItemBaff.Visibility = Visibility.Collapsed;
+                main.AddMenuItemBaff.IsVisible = true;
+                main.DeleteMenuItemBaff.IsVisible = false;
             }
             if(main.DataGridInventory.SelectedIndex == -1)
             {
-                main.AddMenuItemBaff.Visibility = Visibility.Collapsed;
-                main.DeleteMenuItemBaff.Visibility = Visibility.Collapsed;
+                main.AddMenuItemBaff.IsVisible = false;
+                main.DeleteMenuItemBaff.IsVisible = false;
             }
         }
         private void AddMenuItemBaff_Click(object sender, RoutedEventArgs e)
@@ -82,18 +93,17 @@ namespace DNDHelper.Modules.Inventory
             ItemBaffsList.Add(new ItemBaff());
         }
 
-        private void DeleteMenuItemBaff_Click(object sender, RoutedEventArgs e)
+        private async void DeleteMenuItemBaff_Click(object sender, RoutedEventArgs e)
         {
             int selectedIndex = main.DataGridItemBaffsList.SelectedIndex;
             if (selectedIndex != -1)
             {
                 int selectedCount = main.DataGridItemBaffsList.SelectedItems.Count;
-                MessageBoxResult result;
-                if (selectedCount == 1)
-                    result = MessageBox.Show($"Вы точно хотите удалить Бафф", "Удалить Бафф", MessageBoxButton.YesNo);
-                else
-                    result = MessageBox.Show($"Вы точно хотите удалить Баффы", "Удалить Баффы", MessageBoxButton.YesNo);
-                if (result == MessageBoxResult.Yes)
+                var box = selectedCount == 1
+                    ? MessageBoxManager.GetMessageBoxStandard("Удалить Бафф", "Вы точно хотите удалить Бафф", ButtonEnum.YesNo)
+                    : MessageBoxManager.GetMessageBoxStandard("Удалить Баффы", "Вы точно хотите удалить Баффы", ButtonEnum.YesNo);
+                var result = await box.ShowAsync();
+                if (result == ButtonResult.Yes)
                     for (int i = 0; i < selectedCount; i++)
                     {
                         ItemBaffsList.RemoveAt(main.DataGridItemBaffsList.SelectedIndex);
@@ -129,7 +139,7 @@ namespace DNDHelper.Modules.Inventory
                         }
                     }
             }
-            Main.Characteristics.UpdateAllCharacterisitc();
+            MainWindow.Characteristics.UpdateAllCharacterisitc();
             Health.HealthUpdate();
             AttributesCharacter.CallAllMethodInScript();
             KDScript.UpdateAllKD();
@@ -196,6 +206,15 @@ namespace DNDHelper.Modules.Inventory
                     baff.AddValue = baff.AddValue * (float)QualityToDouble(Quality, baff.AddValue < 0);
                     baff.AddRoll = baff.AddRoll / (float)QualityToDouble(Quality, baff.AddRoll < 0);
                 }
+        }
+
+        private static T FindParent<T>(Visual child) where T : Visual
+        {
+            while (child != null && !(child is T))
+            {
+                child = child.GetVisualParent();
+            }
+            return child as T;
         }
 
         public class ItemBaff : INotifyPropertyChanged

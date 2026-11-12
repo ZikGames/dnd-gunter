@@ -1,21 +1,17 @@
-﻿using DNDHelper.Modules.Character;
-using DNDHelper.Modules.Config;
-using DNDHelper.Modules.Inventory;
-using DNDHelper.Modules.MagicSpells;
-using DNDHelper.Modules.Settings;
-using DNDHelper.Windows;
+﻿using DNDHelper.ViewModels.Character;
+using DNDHelper.ViewModels.Config;
+using DNDHelper.ViewModels.Inventory;
+using DNDHelper.ViewModels.Settings;
+using DNDHelper.Views;
 using System;
 using System.Collections.ObjectModel;
 using System.ComponentModel;
 using System.Diagnostics;
-using System.Reflection;
 using System.Runtime.CompilerServices;
-using System.Windows;
-using System.Xml.Linq;
-using static DNDHelper.Modules.Сharacteristics.CharacteristicTable;
-using static DNDHelper.Modules.Сharacteristics.CharacteristicTable.StatName;
+using static DNDHelper.ViewModels.Сharacteristics.CharacteristicTable;
+using static DNDHelper.ViewModels.Сharacteristics.CharacteristicTable.StatName;
 
-namespace DNDHelper.Modules.Сharacteristics
+namespace DNDHelper.ViewModels.Сharacteristics
 {
     public class GridCharacteristics
     {
@@ -84,17 +80,28 @@ namespace DNDHelper.Modules.Сharacteristics
 
         static public ObservableCollection<Characteristic> DataGridChar = DataGridCharNew;
 
-        Main main = Main.Instance;
+        MainWindow main = MainWindow.Instance;
 
         public GridCharacteristics()
         {
-            Main.Instance.DataGridCharacterisctics.ItemsSource = DataGridChar;
+            MainWindow.Instance.DataGridCharacterisctics.ItemsSource = DataGridChar;
             Debug.WriteLine("s");
         }
 
-        public void AddCharacteristic_Click()
+        // Кнопки +/- лежат внутри ячеек DataGrid. В WPF клик по ним выделял строку, в Avalonia Button
+        // обрабатывает нажатие сам и строка НЕ выделяется (SelectedIndex == -1 -> ArgumentOutOfRange).
+        // Поэтому строку берём из DataContext нажатой кнопки, а выделение - только как запасной вариант.
+        private Characteristic? ResolveRow(object? rowItem)
         {
-            int[] selectedIndex = DataGridChar[main.DataGridCharacterisctics.SelectedIndex].Index;
+            if (rowItem is Characteristic c) return c;
+            int i = main.DataGridCharacterisctics.SelectedIndex;
+            return i >= 0 && i < DataGridChar.Count ? DataGridChar[i] : null;
+        }
+
+        public void AddCharacteristic_Click(object? rowItem = null)
+        {
+            int[]? selectedIndex = ResolveRow(rowItem)?.Index;
+            if (selectedIndex == null) return;
 
             
             if (Base(selectedIndex[0]) <= 30)
@@ -106,9 +113,10 @@ namespace DNDHelper.Modules.Сharacteristics
             }
         }
 
-        public void SubtractCharacteristic_Click()
+        public void SubtractCharacteristic_Click(object? rowItem = null)
         {
-            int[] selectedIndex = DataGridChar[main.DataGridCharacterisctics.SelectedIndex].Index;
+            int[]? selectedIndex = ResolveRow(rowItem)?.Index;
+            if (selectedIndex == null) return;
 
             if (Base(selectedIndex[0]) > 3)
             {
@@ -189,6 +197,8 @@ namespace DNDHelper.Modules.Сharacteristics
                     break;
             }
             PointsNow = Race.SelectedClassData.AddPoints + LevelBaffs.AddPoints + Points - Base(Strength) - Base(Agility) - Base(Body) - Base(Intellect) - Base(Wisdom) - Base(Charisma);
+            // EditMode_button — это MenuItem (IsCheckable), у него IsChecked уже обычный bool,
+            // а не bool? как у ToggleButton — приведения не нужно.
             UpdatePointText(main.EditMode_button.IsChecked);
         }
             
@@ -277,7 +287,7 @@ namespace DNDHelper.Modules.Сharacteristics
             OtherBaff(33) = TypeArmorBaffs.CounterAction;
 
             AttributesCharacter.UpdateRolls();
-            Main.Characteristics.UpdateCharacterisitc(Agility);
+            MainWindow.Characteristics.UpdateCharacterisitc(Agility);
         }
 
         // Методы характеристик
@@ -342,7 +352,6 @@ namespace DNDHelper.Modules.Сharacteristics
                 PlayerClass.UpdateCharacteristicMagic();
         }
     }
-
 
 
 

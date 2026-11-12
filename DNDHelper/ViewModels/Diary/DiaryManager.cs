@@ -1,23 +1,23 @@
-﻿using DNDHelper.Modules.Settings;
-using DNDHelper.Windows;
+﻿using DNDHelper.ViewModels.Settings;
+using DNDHelper.Views;
+using MsBox.Avalonia;
+using MsBox.Avalonia.Enums;
 using System;
 using System.Collections.Generic;
-using System.Diagnostics;
 using System.IO;
 using System.Linq;
-using System.Reflection.Metadata;
 using System.Text;
-using System.Threading.Tasks;
-using System.Windows;
-using System.Windows.Controls;
-using System.Windows.Documents;
 
-namespace DNDHelper.Modules.Diary
+namespace DNDHelper.ViewModels.Diary
 {
+    // Дневник: заметки хранятся в .rtf (как в WPF-версии), редактор - AvaloniaEdit с собственным
+    // слоем форматирования (см. RichText.cs). Заметки .txt от предыдущей версии порта читаются и
+    // при первом сохранении превращаются в .rtf.
     internal class DiaryManager
     {
         public static List<Note> Notes = new();
-        Main main = Main.Instance;
+        public static DiaryFormatter? Formatter { get; private set; }
+        MainWindow main = MainWindow.Instance;
         int SelectedIndex = -1;
 
 
@@ -27,15 +27,38 @@ namespace DNDHelper.Modules.Diary
             main.diaryTB.TextChanged += DiaryTB_TextChanged;
             main.CreateNote.Click += CreateNote_Click;
             main.DeleteMenuNote.Click += DeleteMenuNote_Click;
+
+            var formatter = new DiaryFormatter(main.diaryTB);
+            Formatter = formatter;
+            formatter.Modified += SaveCurrentNote;
+
+            main.diaryUndoBtn.Click += (_, _) => formatter.Undo();
+            main.diaryRedoBtn.Click += (_, _) => formatter.Redo();
+            main.diaryBoldBtn.Click += (_, _) => formatter.ToggleBold();
+            main.diaryItalicBtn.Click += (_, _) => formatter.ToggleItalic();
+            main.diaryUnderlineBtn.Click += (_, _) => formatter.ToggleUnderline();
+            main.diaryStrikeBtn.Click += (_, _) => formatter.ToggleStrike();
+            main.fontSizeComboBox.SelectionChanged += FontSizeComboBox_SelectionChanged;
         }
 
-        private void DeleteMenuNote_Click(object sender, RoutedEventArgs e)
+        private void FontSizeComboBox_SelectionChanged(object? sender, Avalonia.Controls.SelectionChangedEventArgs e)
+        {
+            // TextChanges.UpdateFontSizeDisplay() сам меняет выбор в комбобоксе - это не действие пользователя
+            if (TextChanges.isUpdatingFontSize) return;
+            if (main.fontSizeComboBox.SelectedItem is double size)
+                Formatter?.ApplySize(size);
+        }
+
+        private async void DeleteMenuNote_Click(object sender, Avalonia.Interactivity.RoutedEventArgs e)
         {
             if (SelectedIndex != -1)
             {
                 string path = Notes[SelectedIndex].Path;
-                var messageBox = MessageBox.Show($"Вы хотите удалить: {Notes[SelectedIndex].Name}", "Удаление windows", MessageBoxButton.YesNo, MessageBoxImage.Warning);
-                if (messageBox == MessageBoxResult.Yes)
+                var box = MessageBoxManager.GetMessageBoxStandard(
+                    "Удаление windows", $"Вы хотите удалить: {Notes[SelectedIndex].Name}",
+                    ButtonEnum.YesNo, Icon.Warning);
+                var result = await box.ShowAsync();
+                if (result == ButtonResult.Yes)
                 {
                     File.Delete(path);
                     LoadNotes();
@@ -43,95 +66,98 @@ namespace DNDHelper.Modules.Diary
             }
         }
 
-        private void CreateNote_Click(object sender, RoutedEventArgs e)
+        private async void CreateNote_Click(object sender, Avalonia.Interactivity.RoutedEventArgs e)
         {
             var name = main.NameNote.Text;
-            if (name.Length > 0)
+            if (!string.IsNullOrEmpty(name)) // Avalonia: пустое поле = null
             {
                 string pathNote = $"{DataManager.SelectedSave}/Notes/{name}.rtf";
-                if (File.Exists(pathNote))
+                string pathLegacy = $"{DataManager.SelectedSave}/Notes/{name}.txt";
+                if (File.Exists(pathNote) || File.Exists(pathLegacy))
                 {
-                    MessageBox.Show("Название занято", "Эбл", MessageBoxButton.OK, MessageBoxImage.Error);
+                    var box = MessageBoxManager.GetMessageBoxStandard(
+                        "Эбл", "Название занято", ButtonEnum.Ok, Icon.Error);
+                    await box.ShowAsync();
                     return;
                 }
 
-                RichTextBox rtb = new RichTextBox();
-                TextRange range = new TextRange(
-                rtb.Document.ContentStart,
-                rtb.Document.ContentEnd);
-                using (FileStream fs = new FileStream(pathNote, FileMode.Create))
-                {
-                    range.Save(fs, DataFormats.Rtf);
-                }
+                File.WriteAllText(pathNote, RtfIO.Write("", Array.Empty<Fmt>()), Encoding.ASCII);
                 LoadNotes();
             }
         }
 
+        private static bool IsRtf(string path) => path.EndsWith(".rtf", StringComparison.OrdinalIgnoreCase);
+
         public static void LoadNotes()
         {
-            Main.Instance.ListBoxNotes.Items.Clear();
+            MainWindow.Instance.ListBoxNotes.Items.Clear();
             Notes.Clear();
 
             string pathNotes = $"{DataManager.SelectedSave}/Notes";
 
-            if(!Directory.Exists(pathNotes)) 
+            if (!Directory.Exists(pathNotes))
                 Directory.CreateDirectory(pathNotes);
 
-            var notes = Directory.GetFiles(pathNotes);
-            foreach (var notePath in notes)
-            {
-                var noteName = Path.GetFileName(notePath).Replace(".rtf", "");
-                int index = Main.Instance.ListBoxNotes.Items.Add(noteName);
-                Note note = new Note { Name = noteName, Path = notePath };
+            var files = Directory.GetFiles(pathNotes)
+                .Where(p => IsRtf(p) || p.EndsWith(".txt", StringComparison.OrdinalIgnoreCase))
+                .OrderBy(p => p, StringComparer.OrdinalIgnoreCase)
+                .ToList();
 
-                Notes.Add(note);
+            // если есть и note.rtf, и note.txt - показываем один раз (приоритет у .rtf)
+            var rtfNames = new HashSet<string>(
+                files.Where(p => IsRtf(p)).Select(p => Path.GetFileNameWithoutExtension(p)),
+                StringComparer.OrdinalIgnoreCase);
+
+            foreach (var notePath in files)
+            {
+                var noteName = Path.GetFileNameWithoutExtension(notePath);
+                if (!IsRtf(notePath) && rtfNames.Contains(noteName))
+                    continue;
+
+                MainWindow.Instance.ListBoxNotes.Items.Add(noteName);
+                Notes.Add(new Note { Name = noteName, Path = notePath });
             }
         }
 
-        public static void SaveFlowDocumentToRtf(FlowDocument flowDoc, string savePath)
-        {
-            TextRange textRange = new TextRange(
-                flowDoc.ContentStart,
-                flowDoc.ContentEnd
-            );
-
-            using (FileStream fs = new FileStream(savePath, FileMode.Create))
-            {
-                textRange.Save(fs, DataFormats.Rtf);
-            }
-        }
-
-        private void LoadRtfFile(string filePath)
+        private void LoadNote(string filePath)
         {
             try
             {
-                TextRange range = new TextRange(
-                     main.diaryTB.Document.ContentStart,
-                     main.diaryTB.Document.ContentEnd);
-
-                using (FileStream fs = new FileStream(filePath, FileMode.Open))
+                if (IsRtf(filePath))
                 {
-                    range.Load(fs, DataFormats.Rtf);
+                    var (text, formats) = RtfIO.Parse(File.ReadAllText(filePath, Encoding.Latin1));
+                    Formatter?.SetContent(text, formats);
+                }
+                else
+                {
+                    Formatter?.SetContent(File.ReadAllText(filePath), Array.Empty<Fmt>());
                 }
             }
             catch (Exception ex)
             {
-                MessageBox.Show($"Error opening file: {ex.Message}", "Error",
-                              MessageBoxButton.OK, MessageBoxImage.Error);
+                var box = MessageBoxManager.GetMessageBoxStandard(
+                    "Error", $"Error opening file: {ex.Message}", ButtonEnum.Ok, Icon.Error);
+                box.ShowAsync();
             }
         }
 
-        private void SaveRtfFile(string filePath)
+        private void SaveCurrentNote()
         {
+            if (Formatter == null || Formatter.IsLoading) return;
+            if (SelectedIndex < 0 || SelectedIndex >= Notes.Count) return;
+
             try
             {
-                TextRange range = new TextRange(
-                    main.diaryTB.Document.ContentStart,
-                    main.diaryTB.Document.ContentEnd);
+                Note note = Notes[SelectedIndex];
+                string rtfPath = IsRtf(note.Path) ? note.Path : Path.ChangeExtension(note.Path, ".rtf");
 
-                using (FileStream fs = new FileStream(filePath, FileMode.Create))
+                File.WriteAllText(rtfPath, Formatter.ToRtf(), Encoding.ASCII);
+
+                // заметка из старой версии порта (.txt) переехала в .rtf
+                if (!string.Equals(rtfPath, note.Path, StringComparison.OrdinalIgnoreCase))
                 {
-                    range.Save(fs, DataFormats.Rtf);
+                    File.Delete(note.Path);
+                    note.Path = rtfPath;
                 }
             }
             catch
@@ -140,25 +166,24 @@ namespace DNDHelper.Modules.Diary
             }
         }
 
-        private void ListBoxNotes_SelectionChanged(object sender, System.Windows.Controls.SelectionChangedEventArgs e)
+        private void ListBoxNotes_SelectionChanged(object sender, Avalonia.Controls.SelectionChangedEventArgs e)
         {
-            SelectedIndex = Main.Instance.ListBoxNotes.SelectedIndex;
+            SelectedIndex = MainWindow.Instance.ListBoxNotes.SelectedIndex;
             if (SelectedIndex != -1)
-                LoadRtfFile(Notes[SelectedIndex].Path);
+                LoadNote(Notes[SelectedIndex].Path);
         }
 
-        private void DiaryTB_TextChanged(object sender, System.Windows.Controls.TextChangedEventArgs e)
+        private void DiaryTB_TextChanged(object sender, EventArgs e)
         {
-            if (SelectedIndex != -1)
-                SaveRtfFile(Notes[SelectedIndex].Path);
+            // при загрузке заметки Text меняется программно - сохранять нельзя, форматирование ещё не применено
+            if (Formatter != null && Formatter.IsLoading) return;
+            SaveCurrentNote();
         }
     }
 
     public class Note
     {
         public string Name { get; set; }
-
-        public FlowDocument Description { get; set; }
 
         public string Path { get; set; }
     }

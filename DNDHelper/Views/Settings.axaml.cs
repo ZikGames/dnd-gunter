@@ -1,27 +1,18 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
-using System.Windows;
-using System.Windows.Controls;
-using System.Windows.Data;
-using System.Windows.Documents;
-using System.Windows.Input;
-using System.Windows.Media;
-using System.Windows.Media.Imaging;
-using System.Windows.Shapes;
-using MaterialDesignColors;
-using MaterialDesignThemes.Wpf;
-using DarkThem = DNDHelper.Modules.Settings.Settings;
-using DNDHelper.Modules.Inventory;
-using DNDHelper.Modules.MagicSpells;
-using DNDHelper.Modules.Settings;
+﻿using Avalonia;
+using Avalonia.Controls;
+using Avalonia.Interactivity;
+using Avalonia.Styling;
+using DNDHelper.ViewModels.Inventory;
+using DNDHelper.ViewModels.MagicSpells;
+using DNDHelper.ViewModels.Settings;
+using DarkThem = DNDHelper.ViewModels.Settings.Settings;
 
-namespace DNDHelper.Windows
+using DNDHelper.ViewModels.Infrastructure;
+
+namespace DNDHelper.Views
 {
     /// <summary>
-    /// Логика взаимодействия для Settings.xaml
+    /// Логика взаимодействия для Settings.axaml
     /// </summary>
     public partial class Settings : Window
     {
@@ -30,6 +21,7 @@ namespace DNDHelper.Windows
         public Settings()
         {
             InitializeComponent();
+            DataContext = new SettingsViewModel();
             Instance = this;
 
             SetRepository setRepository = new SetRepository();
@@ -51,23 +43,23 @@ namespace DNDHelper.Windows
                 int selectionIndex = comboBox.SelectedIndex;
                 object selectionItem = ComboBoxTheme.SelectedItem;
 
-                var paletteHelper = new PaletteHelper();
-                Theme theme = paletteHelper.GetTheme();
+                // WPF MaterialDesignThemes (PaletteHelper/Theme/BaseTheme) заменены на
+                // встроенный в Avalonia механизм ThemeVariant, с которым Material.Avalonia
+                // (уже подключён в App.axaml) работает "из коробки".
                 switch (selectionIndex)
                 {
                     case 0:
                         DarkThem.IsDarkTheme = false;
                         DarkThem.SelectedTheme = DarkThem.LightTheme;
-                        theme.SetBaseTheme(BaseTheme.Light);
+                        Application.Current.RequestedThemeVariant = ThemeVariant.Light;
                         break;
                     case 1:
                         DarkThem.IsDarkTheme = true;
                         DarkThem.SelectedTheme = DarkThem.DarkTheme;
-                        theme.SetBaseTheme(BaseTheme.Dark);
+                        Application.Current.RequestedThemeVariant = ThemeVariant.Dark;
                         break;
                 }
-                Main.Instance.SetTheme(DarkThem.SelectedTheme[0], DarkThem.SelectedTheme[1]);
-                paletteHelper.SetTheme(theme);
+                Views.MainWindow.Instance.SetTheme(DarkThem.SelectedTheme[0], DarkThem.SelectedTheme[1]);
                 MagicSpells.RepositoryLoad();
                 SetRepository.UpdateListBox();
 

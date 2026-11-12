@@ -1,18 +1,13 @@
-﻿using DNDHelper.Windows;
+﻿using DNDHelper.Views;
 using System;
-using System.Collections.Generic;
-using System.Diagnostics;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
 
-namespace DNDHelper.Modules.MagicSpells
+namespace DNDHelper.ViewModels.MagicSpells
 {
     internal class MagicCurse
     {
         public MagicCurse()
         {
-            
+
         }
 		public static void ColdBoosting(CurseMagic curseMagicInstanceColdBoosting)
 		{
@@ -42,9 +37,12 @@ namespace DNDHelper.Modules.MagicSpells
 					consumables = 2.81;
 					break;
 			}
-			if (string.IsNullOrEmpty(curseMagicInstanceColdBoosting.ColdBoosting_SpellName_cb.Text))
+			// WPF ColdBoosting_SpellName_cb.Text подразумевал editable ComboBox с текстом;
+			// в Avalonia ComboBox не имеет Text (это не editable-комбобокс) — проверяем
+			// вместо этого, выбран ли элемент вообще (пустое состояние показывает Watermark).
+			if (curseMagicInstanceColdBoosting.ColdBoosting_SpellName_cb.SelectedItem == null)
 			{
-				totaldammage = Math.Floor(Convert.ToDouble(damage) * consumables * 0.89 * MagicSpells.muliplyStaff * MagicSpells.muliplyTypeStaff * Modules.Settings.DataManager.DataSave.MultiplyMagicDamage);
+				totaldammage = Math.Floor(Convert.ToDouble(damage) * consumables * 0.89 * MagicSpells.muliplyStaff * MagicSpells.muliplyTypeStaff * Settings.DataManager.DataSave.MultiplyMagicDamage);
 			}
 			else
 			{
@@ -78,7 +76,7 @@ namespace DNDHelper.Modules.MagicSpells
 					consumables = 2.81;
 					break;
 			}
-			double totalgift = Math.Floor(22 * (Convert.ToDouble(quantity) + 1) * consumables * MagicSpells.muliplyStaff * MagicSpells.muliplyTypeStaff * Modules.Settings.DataManager.DataSave.MultiplyMagicDamage);
+			double totalgift = Math.Floor(22 * (Convert.ToDouble(quantity) + 1) * consumables * MagicSpells.muliplyStaff * MagicSpells.muliplyTypeStaff * Settings.DataManager.DataSave.MultiplyMagicDamage);
 			if (curseMagicInstanceGiftOfHealing.GiftOfHealing_total_textblock != null)
 			{
 				curseMagicInstanceGiftOfHealing.GiftOfHealing_total_textblock.Text = Convert.ToString(totalgift);
@@ -107,7 +105,7 @@ namespace DNDHelper.Modules.MagicSpells
 					consumables = 2.81;
 					break;
 			}
-			double totalgift = Math.Floor((Convert.ToDouble(quantity) + 1) * 30 * consumables * MagicSpells.muliplyStaff * MagicSpells.muliplyTypeStaff * Modules.Settings.DataManager.DataSave.MultiplyMagicDamage);
+			double totalgift = Math.Floor((Convert.ToDouble(quantity) + 1) * 30 * consumables * MagicSpells.muliplyStaff * MagicSpells.muliplyTypeStaff * Settings.DataManager.DataSave.MultiplyMagicDamage);
 			if (curseMagicInstanceGiftOfDark.GiftOfDark_total_textblock != null)
 			{
 				curseMagicInstanceGiftOfDark.GiftOfDark_total_textblock.Text = Convert.ToString(totalgift);

@@ -1,17 +1,12 @@
-﻿using DNDHelper.Modules.Settings;
-using DNDHelper.Windows;
-using System;
-using System.Collections.Generic;
-using System.ComponentModel;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
+﻿using Avalonia.Controls;
+using DNDHelper.ViewModels.Settings;
+using DNDHelper.Views;
 
-namespace DNDHelper.Modules.Inventory
+namespace DNDHelper.ViewModels.Inventory
 {
 	public class Backpack
 	{
-		Main main = Main.Instance;
+		MainWindow main = MainWindow.Instance;
 		static public int AddWeight = 0;
         static public int DivideItemWeight = 1;
         static public bool IsDivideArmorWeight = true;
@@ -22,9 +17,9 @@ namespace DNDHelper.Modules.Inventory
 
         }
 
-        private void Backpack_quantity_cb_SelectionChanged(object sender, System.Windows.Controls.SelectionChangedEventArgs e)
+        private void Backpack_quantity_cb_SelectionChanged(object sender, SelectionChangedEventArgs e)
         {
-			UpdateAddWeight();
+				UpdateAddWeight();
         }
 
 		private void UpdateAddWeight()

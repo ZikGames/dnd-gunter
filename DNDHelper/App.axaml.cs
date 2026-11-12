@@ -1,11 +1,9 @@
-using Avalonia;
+﻿using Avalonia;
 using Avalonia.Controls.ApplicationLifetimes;
-using Avalonia.Data.Core;
-using Avalonia.Data.Core.Plugins;
-using System.Linq;
 using Avalonia.Markup.Xaml;
-using DNDHelper.ViewModels;
+using DNDHelper.ViewModels.Infrastructure;
 using DNDHelper.Views;
+using System.Linq;
 
 namespace DNDHelper;
 
@@ -18,30 +16,22 @@ public partial class App : Application
 
     public override void OnFrameworkInitializationCompleted()
     {
+        // Стандартный шаг шаблона Avalonia MVVM: убираем встроенный
+        // DataAnnotationsValidationPlugin, чтобы не дублировать валидацию
+        // с той, что уже даёт CommunityToolkit.Mvvm (ObservableValidator).
         if (ApplicationLifetime is IClassicDesktopStyleApplicationLifetime desktop)
         {
-            // Avoid duplicate validations from both Avalonia and the CommunityToolkit. 
-            // More info: https://docs.avaloniaui.net/docs/guides/development-guides/data-validation#manage-validationplugins
-            DisableAvaloniaDataAnnotationValidation();
-            desktop.MainWindow = new MainWindow
-            {
-                DataContext = new MainWindowViewModel(),
-            };
+            // Avalonia 12: BindingPlugins/DataAnnotationsValidationPlugin убраны из фреймворка,
+            // валидация data-annotations теперь отключена по умолчанию сама — раньше здесь был
+            // вызов DisableAvaloniaDataAnnotationValidation(), которая руками убирала плагин,
+            // чтобы не дублировать валидацию с CommunityToolkit.Mvvm. Поведение то же, метод не нужен.
+
+            // DataContext НЕ задаём здесь: MainWindow сам ставит DataContext = DataManager.DataSave
+            // в конструкторе (InitializeClasses). Инициализатор объекта выполняется ПОСЛЕ
+            // конструктора и затирал его пустой заглушкой MainWindowViewModel -> все [Binding] ошибки.
+            desktop.MainWindow = new MainWindow();
         }
 
         base.OnFrameworkInitializationCompleted();
-    }
-
-    private void DisableAvaloniaDataAnnotationValidation()
-    {
-        // Get an array of plugins to remove
-        var dataValidationPluginsToRemove =
-            BindingPlugins.DataValidators.OfType<DataAnnotationsValidationPlugin>().ToArray();
-
-        // remove each entry found
-        foreach (var plugin in dataValidationPluginsToRemove)
-        {
-            BindingPlugins.DataValidators.Remove(plugin);
-        }
     }
 }

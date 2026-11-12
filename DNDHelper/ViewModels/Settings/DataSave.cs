@@ -1,106 +1,120 @@
-﻿using DNDHelper.Modules.Character;
-using DNDHelper.Modules.Config;
-using DNDHelper.Modules.Diary;
-using DNDHelper.Modules.Inventory;
-using DNDHelper.Modules.Сharacteristics;
-using DNDHelper.Windows;
-using MahApps.Metro.Controls;
-using Microsoft.Win32;
+﻿using Avalonia.Controls;
+using Avalonia.Input;
+using Avalonia.Interactivity;
+using Avalonia.Media.Imaging;
+using Avalonia.Platform.Storage;
+using Avalonia.Threading;
+using DNDHelper.ViewModels.Character;
+using DNDHelper.ViewModels.Config;
+using DNDHelper.ViewModels.Diary;
+using DNDHelper.ViewModels.Inventory;
+using DNDHelper.ViewModels.Сharacteristics;
+using DNDHelper.Views;
+using MsBox.Avalonia;
+using MsBox.Avalonia.Enums;
 using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.ComponentModel;
 using System.Diagnostics;
-using System.DirectoryServices.ActiveDirectory;
 using System.IO;
 using System.Linq;
 using System.Reflection;
-using System.Reflection.PortableExecutable;
 using System.Runtime.CompilerServices;
-using System.Text;
 using System.Text.Json;
 using System.Text.Json.Serialization;
+using System.Threading;
 using System.Threading.Tasks;
-using System.Windows;
-using System.Windows.Controls;
-using System.Windows.Media.Imaging;
-using static DNDHelper.Modules.Character.TreeSkills;
-using static DNDHelper.Modules.Сharacteristics.CharacteristicTable;
+using static DNDHelper.ViewModels.Character.TreeSkills;
+using static DNDHelper.ViewModels.Сharacteristics.CharacteristicTable;
 
-namespace DNDHelper.Modules.Settings
+namespace DNDHelper.ViewModels.Settings
 {
     class SavesMenu
     {
-        Main main = Main.Instance;
+        MainWindow main = MainWindow.Instance;
 
         private int SelectedIndex = -1;
 
         public SavesMenu()
         {
             main.AddCharacter.Click += AddCharacter_Click;
-            main.ImageIconCharacter.MouseLeftButtonDown += ImageIconCharacter_MouseLeftButtonDown;
-            main.ImageCharacter.MouseLeftButtonDown += ImageCharacter_MouseLeftButtonDown;
+            main.ImageIconCharacter.PointerPressed += ImageIconCharacter_PointerPressed;
+            main.ImageCharacter.PointerPressed += ImageCharacter_PointerPressed;
         }
 
-        private void ImageCharacter_MouseLeftButtonDown(object sender, System.Windows.Input.MouseButtonEventArgs e)
+        private async void ImageCharacter_PointerPressed(object sender, PointerPressedEventArgs e)
         {
-            SaveImage();
+            if (!e.GetCurrentPoint(main.ImageCharacter).Properties.IsLeftButtonPressed)
+                return;
+            await SaveImage();
         }
 
-        private void SaveImage()
+        private async Task SaveImage()
         {
-            OpenFileDialog LoadImageCharacter = new()
+            // WPF Microsoft.Win32.OpenFileDialog (синхронный) -> Avalonia IStorageProvider
+            // (асинхронный, см. шпаргалку п.4).
+            var topLevel = TopLevel.GetTopLevel(main);
+            if (topLevel == null) return;
+
+            var files = await topLevel.StorageProvider.OpenFilePickerAsync(new FilePickerOpenOptions
             {
-                Filter = "Изображения (*.png;*.jpeg;*.jpg)|*.png;*.jpeg;*.jpg"
-            };
+                Title = "Выберите изображение персонажа",
+                AllowMultiple = false,
+                FileTypeFilter = new[]
+                {
+                    new FilePickerFileType("Изображения") { Patterns = new[] { "*.png", "*.jpeg", "*.jpg" } }
+                }
+            });
 
-            if (LoadImageCharacter.ShowDialog() == true)
+            if (files.Count == 0)
+                return;
+
+            string sourcePath = files[0].Path.LocalPath;
+
+            try
             {
-                try
+                string fileExtension = Path.GetExtension(sourcePath).ToLower();
+                var formats = new[] { ".png", ".jpg", ".jpeg" };
+                foreach (var format in formats)
                 {
-                    string fileExtension = Path.GetExtension(LoadImageCharacter.FileName).ToLower();
-                    var formats = new[] { ".png", ".jpg", ".jpeg" };
-                    foreach (var format in formats)
-                    {
-                        var oldFile = Path.Combine(DataManager.SelectedSave, $"image{format}");
-                        if (File.Exists(oldFile))
-                            File.Delete(oldFile);
-                    }
-                    if (!Directory.Exists(DataManager.SelectedSave))
-                        Directory.CreateDirectory(DataManager.SelectedSave);
-
-                    string destinationPath = Path.Combine(DataManager.SelectedSave, $"image{fileExtension}");
-                    File.Copy(LoadImageCharacter.FileName, destinationPath, true);
-
-                    byte[] imageBytes = File.ReadAllBytes(destinationPath);
-                    using (MemoryStream ms = new(imageBytes))
-                    {
-                        BitmapImage bitmap = new();
-                        bitmap.BeginInit();
-                        bitmap.CacheOption = BitmapCacheOption.OnLoad;
-                        bitmap.StreamSource = ms;
-                        bitmap.EndInit();
-                        bitmap.Freeze();
-
-                        main.ImageCharacter.Source = bitmap;
-                    }
-
-                    main.ImageIconCharacter.Visibility = Visibility.Collapsed;
-                    main.ImageCharacter.Visibility = Visibility.Visible;
-
+                    var oldFile = Path.Combine(DataManager.SelectedSave, $"image{format}");
+                    if (File.Exists(oldFile))
+                        File.Delete(oldFile);
                 }
-                catch (Exception ex)
+                if (!Directory.Exists(DataManager.SelectedSave))
+                    Directory.CreateDirectory(DataManager.SelectedSave);
+
+                string destinationPath = Path.Combine(DataManager.SelectedSave, $"image{fileExtension}");
+                File.Copy(sourcePath, destinationPath, true);
+
+                byte[] imageBytes = File.ReadAllBytes(destinationPath);
+                using (MemoryStream ms = new(imageBytes))
                 {
-                    MessageBox.Show("Ошибка загрузки изображения: " + ex.Message);
+                    // WPF BitmapImage (BeginInit/CacheOption/StreamSource/EndInit/Freeze) ->
+                    // Avalonia Bitmap конструируется прямо из потока, без всей этой обвязки.
+                    var bitmap = new Bitmap(ms);
+                    main.ImageCharacter.Source = bitmap;
                 }
+
+                main.ImageIconCharacter.IsVisible = false;
+                main.ImageCharacter.IsVisible = true;
+
+            }
+            catch (Exception ex)
+            {
+                var box = MessageBoxManager.GetMessageBoxStandard("Ошибка", "Ошибка загрузки изображения: " + ex.Message);
+                await box.ShowAsync();
             }
         }
-        private void ImageIconCharacter_MouseLeftButtonDown(object sender, System.Windows.Input.MouseButtonEventArgs e)
+        private async void ImageIconCharacter_PointerPressed(object sender, PointerPressedEventArgs e)
         {
-            SaveImage();
+            if (!e.GetCurrentPoint(main.ImageIconCharacter).Properties.IsLeftButtonPressed)
+                return;
+            await SaveImage();
         }
 
-        private void AddCharacter_Click(object sender, System.Windows.RoutedEventArgs e)
+        private void AddCharacter_Click(object sender, RoutedEventArgs e)
         {
             DataManager.Create();
         }
@@ -117,28 +131,32 @@ namespace DNDHelper.Modules.Settings
 
         public static void FindPathSaves()
         {
-            string[] path = Assembly.GetExecutingAssembly().Location.Split('\\');
-            pathSaves = string.Join("\\", path, 0, path.Count() - 2) + "\\Saves\\";
+            // Раньше: два уровня вверх от exe (см. историю правок) — ломалось под Nix,
+            // т.к. /nix/store read-only и путь меняется при каждой пересборке (см. AppPaths.cs).
+            pathSaves = Path.Combine(AppPaths.GetWritableRoot(), "Saves") + Path.DirectorySeparatorChar;
         }
         public static void WorkingProgram(bool visibilityBool)
         {
-            Visibility visibility = Visibility.Visible;
-            if (!visibilityBool)
-                visibility = Visibility.Hidden;
-			Main.Instance.Magic_menuitem.Visibility = visibility;
-			Main.Instance.WorkProgam1.Visibility = visibility;
-            Main.Instance.WorkProgam2.Visibility = visibility;
-            Main.Instance.WorkProgam3.Visibility = visibility;
-            Main.Instance.WorkProgam4.Visibility = visibility;
-            Main.Instance.WorkProgam5.Visibility = visibility;
-            Main.Instance.WorkProgam6.Visibility = visibility;
-            Main.Instance.WorkProgam7.Visibility = visibility;
-            Main.Instance.сharacter_weight_textblock.Visibility = visibility;
-            Main.Instance.DataGridCharacterisctics.Visibility = visibility;
+            bool visible = visibilityBool;
+			MainWindow.Instance.Magic_menuitem.IsVisible = visible;
+			MainWindow.Instance.WorkProgam1.IsVisible = visible;
+            MainWindow.Instance.WorkProgam2.IsVisible = visible;
+            MainWindow.Instance.WorkProgam3.IsVisible = visible;
+            MainWindow.Instance.WorkProgam4.IsVisible = visible;
+            MainWindow.Instance.WorkProgam5.IsVisible = visible;
+            MainWindow.Instance.WorkProgam6.IsVisible = visible;
+            MainWindow.Instance.WorkProgam7.IsVisible = visible;
+            MainWindow.Instance.сharacter_weight_textblock.IsVisible = visible;
+            MainWindow.Instance.DataGridCharacterisctics.IsVisible = visible;
+            // NOTE: в оригинале WorkProgam8 использовал Visibility.Hidden вместо Collapsed
+            // при visibilityBool==false (единственный из всей группы) - место в layout
+            // сохранялось. В Avalonia такого состояния нет из коробки (см. шпаргалку п.2),
+            // так что тут просто IsVisible=true/false как и у остальных; если WorkProgam8
+            // визуально "прыгает" в раскладке - см. .axaml для этого элемента.
             if (visibilityBool)
-                Main.Instance.WorkProgam8.Visibility = Visibility.Collapsed;
+                MainWindow.Instance.WorkProgam8.IsVisible = false;
             else
-                Main.Instance.WorkProgam8.Visibility = Visibility.Visible;
+                MainWindow.Instance.WorkProgam8.IsVisible = true;
         }
 
 
@@ -150,13 +168,13 @@ namespace DNDHelper.Modules.Settings
             List<string> savefolders = new();
             foreach (string folder in allfolders)
             {
-                var folders = folder.Split('/');
+                var folders = folder.Split(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
                 if (folders[folders.Length - 1].Contains("Save") && !folders[folders.Length - 1].Contains('.'))
                     savefolders.Add(folder);
             }
 
 
-            Main.Instance.CharactersMenu.Items.Clear();
+            MainWindow.Instance.CharactersMenu.Items.Clear();
 
             foreach (string folder in savefolders)
             {
@@ -172,19 +190,32 @@ namespace DNDHelper.Modules.Settings
 
 
                         var dataSave = JsonSerializer.Deserialize<DataSaveEmpty>(json);
-                        var newMenuItem = new MenuItem { Header = dataSave.Name, ContextMenu = deleteContextMenu, Tag = folder };
+                        var newMenuItem = new MenuItem { Header = dataSave.Name, Tag = folder };
+                        newMenuItem.ContextMenu = deleteContextMenu;
                         newMenuItem.Click += Load_Click;
-                        Main.Instance.CharactersMenu.Items.Add(newMenuItem);
+                        MainWindow.Instance.CharactersMenu.Items.Add(newMenuItem);
                     }
                     catch (Exception ex)
                     {
-                        var messagebox = MessageBox.Show($"У тебя наебнулось сохранения\r\nПуть: {folder}\r\nУДАЛИТЬ?УДАЛИТЬ?УДАЛИТЬ?УДАЛИТЬ?УДАЛИТЬ?УДАЛИТЬ?", "Лошара", MessageBoxButton.YesNo, MessageBoxImage.Error);
-                        if (messagebox == MessageBoxResult.Yes)
-                            Directory.Delete(folder, true);
+                        // Диалог про битое сохранение не блокирует ReadSaves() синхронно (в
+                        // Avalonia MessageBox нельзя дождаться синхронно, см. шпаргалку п.3) -
+                        // запускается отдельно, ReadSaves() продолжает обрабатывать остальные папки.
+                        HandleCorruptedSave(folder);
                     }
 				}
             }
 
+        }
+
+        private static async void HandleCorruptedSave(string folder)
+        {
+            var box = MessageBoxManager.GetMessageBoxStandard(
+                "Лошара",
+                $"У тебя наебнулось сохранения\r\nПуть: {folder}\r\nУДАЛИТЬ?УДАЛИТЬ?УДАЛИТЬ?УДАЛИТЬ?УДАЛИТЬ?УДАЛИТЬ?",
+                ButtonEnum.YesNo, Icon.Error);
+            var result = await box.ShowAsync();
+            if (result == ButtonResult.Yes)
+                Directory.Delete(folder, true);
         }
 
 
@@ -219,29 +250,35 @@ namespace DNDHelper.Modules.Settings
             Load(newDirectory);
 		}
 
-        private static void DeleteItem_Click(object sender, RoutedEventArgs e)
+        private static async void DeleteItem_Click(object sender, RoutedEventArgs e)
         {
             var menuItemDelete = sender as MenuItem;
             var path = menuItemDelete.Tag.ToString();
-            Delete(path);
+            await Delete(path);
         }
 
-        public static void Delete(string path)
+        public static async Task Delete(string path)
         {
             if (path != SelectedSave)
             {
                 var json = File.ReadAllText($"{path}/Config.json");
                 var dataSave = JsonSerializer.Deserialize<DataSaveEmpty>(json);
-                var messageBox = MessageBox.Show($"Вы уверены, что хотите удалить персонажа {dataSave.Name}", "Удаление персонажа", MessageBoxButton.YesNo, MessageBoxImage.Warning);
-                if (messageBox == MessageBoxResult.Yes)
+                var box = MessageBoxManager.GetMessageBoxStandard(
+                    "Удаление персонажа", $"Вы уверены, что хотите удалить персонажа {dataSave.Name}",
+                    ButtonEnum.YesNo, Icon.Warning);
+                var result = await box.ShowAsync();
+                if (result == ButtonResult.Yes)
                 {
-
                     Directory.Delete(path, true);
                     ReadSaves();
                 }
             }
             else
-                MessageBox.Show("Это сохранение открыто", "Тыеб", MessageBoxButton.OK, MessageBoxImage.Warning);
+            {
+                var box = MessageBoxManager.GetMessageBoxStandard(
+                    "Тыеб", "Это сохранение открыто", ButtonEnum.Ok, Icon.Warning);
+                await box.ShowAsync();
+            }
         }
 
         public static bool IsLoad = true;
@@ -258,8 +295,12 @@ namespace DNDHelper.Modules.Settings
             if (!Force)
                 _debouncer.ExecuteDebounced(async () =>
                 {
+                    // Этот делегат выполняется в Task.Run (пул потоков). save() только
+                    // сериализует данные в файл, а ReadSaves() пересоздаёт пункты меню
+                    // CharactersMenu - UI-объекты Avalonia нельзя создавать и менять не из
+                    // UI-потока (иначе "The calling thread cannot access this object...").
                     save();
-                    ReadSaves();
+                    await Dispatcher.UIThread.InvokeAsync(ReadSaves);
                 });
             else
                 ForceSaveDataAsync();
@@ -285,7 +326,7 @@ namespace DNDHelper.Modules.Settings
 
             File.WriteAllText($"{SelectedSave}/Config.json", json);
         }
-        private static void Load_Click(object sender, System.Windows.RoutedEventArgs e)
+        private static void Load_Click(object sender, RoutedEventArgs e)
         {
             var clickedItem = sender as MenuItem;
             Load(clickedItem.Tag.ToString());
@@ -312,7 +353,7 @@ namespace DNDHelper.Modules.Settings
                 GridCharacteristics.DataGridChar = GridCharacteristics.DataGridCharNew;
             else
                 GridCharacteristics.DataGridChar = GridCharacteristics.DataGridCharOld;
-            Main.Instance.DataGridCharacterisctics.ItemsSource = GridCharacteristics.DataGridChar;
+            MainWindow.Instance.DataGridCharacterisctics.ItemsSource = GridCharacteristics.DataGridChar;
 
 
             WorkingProgram(true);
@@ -384,10 +425,12 @@ namespace DNDHelper.Modules.Settings
 
             Character.Skills.ReloadDataGridSkills();
             Level.SetLevel();
-            Main.ItemBaffsListScript.UpdateValues();
+            MainWindow.ItemBaffsListScript.UpdateValues();
             DiaryManager.LoadNotes();
             LoadImage();
-            Main.Instance.diaryTB.Document.Blocks.Clear();
+            // WPF diaryTB.Document.Blocks.Clear() (FlowDocument) -> diaryTB теперь
+            // AvaloniaEdit.TextEditor, у него просто Text.
+            MainWindow.Instance.diaryTB.Text = "";
             SetRepository.FileСonnection();
 
             IsLoad = false;
@@ -419,30 +462,30 @@ namespace DNDHelper.Modules.Settings
                     byte[] imageBytes = File.ReadAllBytes(imagePath);
                     using (MemoryStream ms = new(imageBytes))
                     {
-                        BitmapImage bitmap = new();
-                        bitmap.BeginInit();
-                        bitmap.CacheOption = BitmapCacheOption.OnLoad;
-                        bitmap.StreamSource = ms;
-                        bitmap.EndInit();
-                        bitmap.Freeze();
-
-                        Main.Instance.ImageCharacter.Source = bitmap;
+                        var bitmap = new Bitmap(ms);
+                        MainWindow.Instance.ImageCharacter.Source = bitmap;
                     }
 
-                    Main.Instance.ImageIconCharacter.Visibility = Visibility.Collapsed;
-                    Main.Instance.ImageCharacter.Visibility = Visibility.Visible;
+                    MainWindow.Instance.ImageIconCharacter.IsVisible = false;
+                    MainWindow.Instance.ImageCharacter.IsVisible = true;
                 }
                 catch (Exception ex)
                 {
-                    MessageBox.Show("Ошибка загрузки изображения: " + ex.Message);
+                    ShowImageLoadError(ex.Message);
                 }
             }
             else
             {
-                Main.Instance.ImageCharacter.Source = null;
-                Main.Instance.ImageIconCharacter.Visibility = Visibility.Visible;
-                Main.Instance.ImageCharacter.Visibility = Visibility.Collapsed;
+                MainWindow.Instance.ImageCharacter.Source = null;
+                MainWindow.Instance.ImageIconCharacter.IsVisible = true;
+                MainWindow.Instance.ImageCharacter.IsVisible = false;
             }
+        }
+
+        private static async void ShowImageLoadError(string message)
+        {
+            var box = MessageBoxManager.GetMessageBoxStandard("Ошибка", "Ошибка загрузки изображения: " + message);
+            await box.ShowAsync();
         }
 
     }
@@ -649,8 +692,8 @@ namespace DNDHelper.Modules.Settings
             set
             {
                 _multiplyMagicDamage = value;
-                Main.Instance.DamageMagic_textblock.Text = value.ToString();
-                Main.Instance.DamageMagic_textbox.Text = value.ToString();
+                MainWindow.Instance.DamageMagic_textblock.Text = value.ToString();
+                MainWindow.Instance.DamageMagic_textbox.Text = value.ToString();
                 OnPropertyChanged();
             }
         }

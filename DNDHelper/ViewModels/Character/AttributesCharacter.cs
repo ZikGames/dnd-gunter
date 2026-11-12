@@ -1,11 +1,10 @@
-﻿using DNDHelper.Modules.Config;
-using DNDHelper.Modules.Inventory;
-using DNDHelper.Modules.Сharacteristics;
-using DNDHelper.Windows;
-using System.Diagnostics;
-using System.Windows.Controls;
+﻿using Avalonia.Controls;
+using DNDHelper.ViewModels.Config;
+using DNDHelper.ViewModels.Inventory;
+using DNDHelper.ViewModels.Сharacteristics;
+using DNDHelper.Views;
 
-namespace DNDHelper.Modules.Character
+namespace DNDHelper.ViewModels.Character
 {
     class AttributesCharacter
     {
@@ -19,7 +18,7 @@ namespace DNDHelper.Modules.Character
 
         public static void UpdateRolls()
         {
-            Main main = Main.Instance;
+            MainWindow main = MainWindow.Instance;
             main.character_rollattack_textblock.Text = (ItemBaffsListScript.ItemBaffs[30][0] + CharacteristicTable.OtherBaff(30) + Effects.EffectBaffs[31][0]).ToString();
             main.character_block_textblock.Text = (ItemBaffsListScript.ItemBaffs[31][0] + CharacteristicTable.OtherBaff(31) + Effects.EffectBaffs[31][0] + Effects.EffectBaffs[28][0]).ToString();
             main.character_dodge_textblock.Text = (ItemBaffsListScript.ItemBaffs[32][0] + CharacteristicTable.OtherBaff(32) + Effects.EffectBaffs[31][0]).ToString();
@@ -27,19 +26,20 @@ namespace DNDHelper.Modules.Character
             main.character_fistattack_textblock.Text = (ItemBaffsListScript.ItemBaffs[34][0] + Effects.EffectBaffs[31][0]).ToString();
             main.character_longrangeattack_textblock.Text = (ItemBaffsListScript.ItemBaffs[35][0] + Effects.EffectBaffs[31][0]).ToString();
 
-            ToolTip toolTipA = new ToolTip{ Content = $"Предметы:{ItemBaffsListScript.ItemBaffs[30][0]} Эффекты{Effects.EffectBaffs[31][0]} Остальное:{CharacteristicTable.OtherBaff(30)}" };
-            main.character_rollattackname_textblock.ToolTip = toolTipA;
-            ToolTip toolTipB = new ToolTip { Content = $"Предметы:{ItemBaffsListScript.ItemBaffs[31][0]} Эффекты:{Effects.EffectBaffs[31][0] + Effects.EffectBaffs[33][0]} Остальное:{CharacteristicTable.OtherBaff(31)}" };
-            main.character_blockname_textblock.ToolTip = toolTipB;
-            ToolTip toolTipD = new ToolTip { Content = $"Предметы:{ItemBaffsListScript.ItemBaffs[32][0]} Эффекты:{Effects.EffectBaffs[31][0]} Остальное:{CharacteristicTable.OtherBaff(32)}" };
-            main.character_dodgename_textblock.ToolTip = toolTipD;
-            ToolTip toolTipC = new ToolTip { Content = $"Предметы:{ItemBaffsListScript.ItemBaffs[33][0]} Эффекты:{Effects.EffectBaffs[31][0]} Остальное:{CharacteristicTable.OtherBaff(33)}" };
-            main.character_counteractionname_textblock.ToolTip = toolTipC;
-            ToolTip toolTipF = new ToolTip { Content = $"Предметы:{ItemBaffsListScript.ItemBaffs[34][0]} Эффекты:{Effects.EffectBaffs[31][0]}" };
-            main.character_fistattackname_textblock.ToolTip = toolTipF;
-            ToolTip toolTipL = new ToolTip { Content = $"Предметы:{ItemBaffsListScript.ItemBaffs[35][0]} Эффекты:{Effects.EffectBaffs[31][0]}" };
-            main.character_longrangeattackname_textblock.ToolTip = toolTipL;
-
+            // WPF: new ToolTip { Content = "..." } назначался в свойство .ToolTip.
+            // В Avalonia ToolTip — присоединённое свойство, ставится через ToolTip.SetTip(control, content).
+            ToolTip.SetTip(main.character_rollattackname_textblock,
+                $"Предметы:{ItemBaffsListScript.ItemBaffs[30][0]} Эффекты{Effects.EffectBaffs[31][0]} Остальное:{CharacteristicTable.OtherBaff(30)}");
+            ToolTip.SetTip(main.character_blockname_textblock,
+                $"Предметы:{ItemBaffsListScript.ItemBaffs[31][0]} Эффекты:{Effects.EffectBaffs[31][0] + Effects.EffectBaffs[33][0]} Остальное:{CharacteristicTable.OtherBaff(31)}");
+            ToolTip.SetTip(main.character_dodgename_textblock,
+                $"Предметы:{ItemBaffsListScript.ItemBaffs[32][0]} Эффекты:{Effects.EffectBaffs[31][0]} Остальное:{CharacteristicTable.OtherBaff(32)}");
+            ToolTip.SetTip(main.character_counteractionname_textblock,
+                $"Предметы:{ItemBaffsListScript.ItemBaffs[33][0]} Эффекты:{Effects.EffectBaffs[31][0]} Остальное:{CharacteristicTable.OtherBaff(33)}");
+            ToolTip.SetTip(main.character_fistattackname_textblock,
+                $"Предметы:{ItemBaffsListScript.ItemBaffs[34][0]} Эффекты:{Effects.EffectBaffs[31][0]}");
+            ToolTip.SetTip(main.character_longrangeattackname_textblock,
+                $"Предметы:{ItemBaffsListScript.ItemBaffs[35][0]} Эффекты:{Effects.EffectBaffs[31][0]}");
         }
 
         public static void СountAvailableActions()
@@ -61,8 +61,8 @@ namespace DNDHelper.Modules.Character
             actions += ItemBaffsListScript.ItemBaffs[40][0];
             counterActions += ItemBaffsListScript.ItemBaffs[41][0];
 
-            Main.Instance.Actions_textblock.Text = actions.ToString();
-            Main.Instance.Counter_actions_textblock.Text = counterActions.ToString();
+            MainWindow.Instance.Actions_textblock.Text = actions.ToString();
+            MainWindow.Instance.Counter_actions_textblock.Text = counterActions.ToString();
         }
 
         public static void StickMethod()
@@ -80,7 +80,7 @@ namespace DNDHelper.Modules.Character
             double multiplyEffect = Effects.EffectBaffs[34][0] * 0.01;
             if (multiplyEffect != 0)
                 lengthStick *= multiplyEffect;
-            Main.Instance.Movesticks_textblock.Text = lengthStick.ToString();
+            MainWindow.Instance.Movesticks_textblock.Text = lengthStick.ToString();
         }
     }
 }

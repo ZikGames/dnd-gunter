@@ -1,16 +1,16 @@
-﻿using DNDHelper.Modules.Character;
-using DNDHelper.Modules.Inventory;
-using DNDHelper.Modules.Settings;
-using DNDHelper.Windows;
-using System.Collections.ObjectModel;
-using System.Diagnostics;
+﻿using DNDHelper.ViewModels.Character;
+using DNDHelper.ViewModels.Inventory;
+using DNDHelper.ViewModels.Settings;
+using DNDHelper.Views;
+using System;
+using System.Collections.Generic;
 using System.IO;
 using System.Text.Json;
 using System.Text.Json.Serialization;
-using static DNDHelper.Modules.Inventory.InventoryLoot;
-using static DNDHelper.Modules.Сharacteristics.CharacteristicTable;
+using static DNDHelper.ViewModels.Inventory.InventoryLoot;
+using static DNDHelper.ViewModels.Сharacteristics.CharacteristicTable;
 
-namespace DNDHelper.Modules.Config
+namespace DNDHelper.ViewModels.Config
 {
     class Race
     {
@@ -21,14 +21,14 @@ namespace DNDHelper.Modules.Config
 
         public Race()
         {
-            Main.Instance.character_race_combobox.SelectionChanged += character_race_combobox_SelectionChanged;
+            MainWindow.Instance.character_race_combobox.SelectionChanged += character_race_combobox_SelectionChanged;
 
             ClearStats();
         }
 
         public static void Update()
         {
-            string pathFile = Main.PathMain + $"Cache/{DataManager.DataSave.SelectedRepository}/Race.json";
+            string pathFile = MainWindow.PathData + $"Cache/{DataManager.DataSave.SelectedRepository}/Race.json";
             if (File.Exists(pathFile))
             {
                 string json = File.ReadAllText(pathFile);
@@ -41,7 +41,7 @@ namespace DNDHelper.Modules.Config
                 try
                 {
                     data = JsonSerializer.Deserialize<Dictionary<string, List<RaceData>>>(json, options);
-                    Main.Instance.character_race_combobox.ItemsSource = data.Keys;
+                    MainWindow.Instance.character_race_combobox.ItemsSource = data.Keys;
                 }
                 catch
                 {
@@ -50,14 +50,14 @@ namespace DNDHelper.Modules.Config
             }
             else
             {
-                Main.Instance.character_race_combobox.ItemsSource = null;
-                Main.Instance.character_race_textblock.Text = "[[Раса]]";
+                MainWindow.Instance.character_race_combobox.ItemsSource = null;
+                MainWindow.Instance.character_race_textblock.Text = "[[Раса]]";
             }
         }
 
 
 
-        private static void ClearStats() 
+        private static void ClearStats()
         {
             Stats.Clear();
             for (int i = 0; i < 30; i++)
@@ -66,18 +66,18 @@ namespace DNDHelper.Modules.Config
             }
         }
 
-        private void character_race_combobox_SelectionChanged(object sender, System.Windows.Controls.SelectionChangedEventArgs e)
+        private void character_race_combobox_SelectionChanged(object sender, Avalonia.Controls.SelectionChangedEventArgs e)
         {
             UpdateRace();
         }
 
         private static void UpdateRace()
         {
-            if (Main.Instance.character_race_combobox.SelectedValue != null)
+            if (MainWindow.Instance.character_race_combobox.SelectedValue != null)
             {
                 ClearStats();
 
-                string selectText = Main.Instance.character_race_combobox.SelectedValue.ToString();
+                string selectText = MainWindow.Instance.character_race_combobox.SelectedValue.ToString();
                 SelectedClassData = data[selectText][0];
 
                 foreach (var item in SelectedClassData.StandartStats[0])
@@ -92,10 +92,10 @@ namespace DNDHelper.Modules.Config
                     }
                 }
 
-                Main.Characteristics.UpdateAllCharacterisitc();
+                MainWindow.Characteristics.UpdateAllCharacterisitc();
                 Skills.ReloadDataGridSkills();
 
-                Main.Instance.character_race_textblock.Text = selectText;
+                MainWindow.Instance.character_race_textblock.Text = selectText;
 
             }
         }

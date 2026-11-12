@@ -1,17 +1,11 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Diagnostics;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
-using DNDHelper.Modules.Config;
-using DNDHelper.Modules.Inventory;
-using DNDHelper.Modules.Settings;
-using DNDHelper.Modules.Сharacteristics;
-using DNDHelper.Windows;
-using static DNDHelper.Modules.Inventory.InventoryLoot;
+﻿using DNDHelper.ViewModels.Config;
+using DNDHelper.ViewModels.Inventory;
+using DNDHelper.ViewModels.Settings;
+using DNDHelper.ViewModels.Сharacteristics;
+using DNDHelper.Views;
+using static DNDHelper.ViewModels.Inventory.InventoryLoot;
 
-namespace DNDHelper.Modules.Character
+namespace DNDHelper.ViewModels.Character
 {
     class KDScript
     {
@@ -31,7 +25,7 @@ namespace DNDHelper.Modules.Character
 
             MentalKD = intellectBaff + ItemBaffsListScript.ItemBaffs[38][0];
 
-            Main.Instance.MentalKD_TextBlock.Text = MentalKD.ToString();
+            MainWindow.Instance.MentalKD_TextBlock.Text = MentalKD.ToString();
         }
 
         public static void CountKD()
@@ -45,8 +39,8 @@ namespace DNDHelper.Modules.Character
             DebaffKD = Effects.EffectBaffs[30][0];
 
             int generalKD = BodyKD + ArmorKD + DebaffKD;
-            Main.Instance.KD_TextBlock.Text = generalKD.ToString();
-            Main.Instance.HeadKD_TextBlock.Text = HeadKD.ToString();
+            MainWindow.Instance.KD_TextBlock.Text = generalKD.ToString();
+            MainWindow.Instance.HeadKD_TextBlock.Text = HeadKD.ToString();
         }
 
         private static int[] CountItemsKD()

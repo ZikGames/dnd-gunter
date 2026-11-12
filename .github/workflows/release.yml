@@ -1,0 +1,85 @@
+name: Release
+
+# Релиз собирается при пуше тега вида v13.1 (номер версии = тег без "v").
+#   git tag v13.1 && git push origin v13.1
+# Можно запустить и вручную (Actions -> Release -> Run workflow), указав уже существующий тег.
+on:
+  push:
+    tags: ['v*']
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: 'Существующий тег релиза, например v13.1'
+        required: true
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    name: Сборка ${{ matrix.rid }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { rid: win-x64,     os: windows-latest }
+          - { rid: linux-x64,   os: ubuntu-latest }
+          - { rid: linux-arm64, os: ubuntu-latest }
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.tag || github.ref }}
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 10.0.x
+
+      - name: Версия из тега
+        id: ver
+        shell: bash
+        run: |
+          TAG="${{ inputs.tag || github.ref_name }}"
+          echo "tag=$TAG" >> "$GITHUB_OUTPUT"
+          echo "version=${TAG#v}" >> "$GITHUB_OUTPUT"
+
+      - name: Публикация приложения и Updater
+        shell: bash
+        run: |
+          VERSION="${{ steps.ver.outputs.version }}"
+          RID="${{ matrix.rid }}"
+          dotnet publish DNDHelper/DNDHelper.csproj -c Release -r "$RID" --self-contained true \
+            -p:Version="$VERSION" -p:DebugType=None -p:DebugSymbols=false -o stage/DNDHelper
+          dotnet publish Updater/Updater.csproj -c Release -r "$RID" --self-contained true \
+            -p:Version="$VERSION" -o stage/Updater
+          cp packaging/README-PORTABLE.txt stage/README-PORTABLE.txt
+          echo "portable" > stage/portable.txt
+
+      - name: Сборка архива
+        shell: bash
+        run: |
+          python tools/make-portable-zip.py --stage stage \
+            --out "dist/DNDHelper-${{ steps.ver.outputs.version }}-${{ matrix.rid }}.zip"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: dist-${{ matrix.rid }}
+          path: dist/*.zip
+          if-no-files-found: error
+
+  release:
+    name: Публикация релиза
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: dist-*
+          merge-multiple: true
+          path: dist
+
+      - uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ inputs.tag || github.ref_name }}
+          files: dist/*.zip
+          generate_release_notes: true

@@ -1,26 +1,21 @@
-﻿using DNDHelper.Modules.Settings;
-using DNDHelper.Windows;
-using System;
+﻿using DNDHelper.ViewModels.Settings;
+using DNDHelper.Views;
 using System.Collections.Generic;
-using System.Diagnostics;
 using System.IO;
-using System.Linq;
-using System.Text;
 using System.Text.Json;
-using System.Threading.Tasks;
 
-namespace DNDHelper.Modules.Config
+namespace DNDHelper.ViewModels.Config
 {
 	internal class ManagerUrls
 	{
 		public static Dictionary<string, string> _urlData;
 		public static void LoadUrls()
 		{
-			Windows.Main main = Windows.Main.Instance;
-			string pathFile = Main.PathMain + $"Cache/{DataManager.DataSave.SelectedRepository}/urls.json";
+			MainWindow main = MainWindow.Instance;
+			string pathFile = MainWindow.PathData + $"Cache/{DataManager.DataSave.SelectedRepository}/urls.json";
 			if (File.Exists(pathFile))
 			{
-				
+
 				string json = File.ReadAllText(pathFile);
 				var options = new JsonSerializerOptions
 				{
@@ -39,9 +34,9 @@ namespace DNDHelper.Modules.Config
 						}
 					}
 				}
-				catch {  }
+				catch { }
 			}
 		}
 	}
-	
+
 }

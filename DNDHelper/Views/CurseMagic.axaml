@@ -1,22 +1,37 @@
-﻿<Window x:Class="DNDHelper.Windows.CurseMagic"
-        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+﻿<Window x:Class="DNDHelper.Views.CurseMagic"
+        xmlns="https://github.com/avaloniaui"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
-        xmlns:local="clr-namespace:DNDHelper.Windows"
-		xmlns:materialDesign="http://materialdesigninxaml.net/winfx/xaml/themes"
-		Style="{StaticResource MaterialDesignWindow}"
+        xmlns:local="using:DNDHelper.Views"
         mc:Ignorable="d"
-        Title="Проклятая магия" Height="200" Width="800" ResizeMode="NoResize">
+        Title="Проклятая магия" Height="200" Width="800" CanResize="False">
     <Grid>
-		<TabControl TabStripPlacement="Left" HorizontalAlignment="Left" Width="Auto">
+		<TabControl TabStripPlacement="Left" HorizontalAlignment="Left">
 			<TabItem Header="Холодное усиление">
 				<StackPanel Margin="0,15,0,0" VerticalAlignment="Center" HorizontalAlignment="Center">
 					<StackPanel Orientation="Horizontal">
-						<ComboBox x:Name="ColdBoosting_SpellName_cb" IsEditable="True" Width="200" materialDesign:HintAssist.Hint="Заклинанание" Margin="10,0,0,0" SelectionChanged="ColdBoosting_SpellName_cb_SelectionChanged"/>
-						<TextBox x:Name="ColdBoosting_DammageSpell_textbox" Width="60"  materialDesign:HintAssist.Hint="Урон" Margin="10,0,0,0" DataObject.Pasting="DammageSpell_textbox_Pasting" PreviewTextInput="DammageSpell_textbox_PreviewTextInput" TextChanged="DammageSpell_textbox_TextChanged" />
+						<!--
+                            ВАЖНО (упрощение, не 1:1):
+                            1) IsEditable у Avalonia ComboBox нет (свободный ввод текста с фильтрацией
+                               списка — это WPF-специфика). Убрал; если нужен именно ввод+автодополнение,
+                               это AutoCompleteBox, отдельная переделка.
+                            2) materialDesign:HintAssist.Hint — заменил на нативный Avalonia Watermark
+                               (просто плейсхолдер). У Material.Avalonia (Material.Styles.Assists) наверняка
+                               есть свой assist для "плавающей" подписи в духе MaterialDesignInXaml, но я не
+                               стал гадать точное имя API — Watermark гарантированно скомпилируется.
+                            3) DisplayMemberPath у Avalonia ComboBox нет — заменил на ItemTemplate.
+                        -->
+						<ComboBox x:Name="ColdBoosting_SpellName_cb" Width="200" PlaceholderText="Заклинанание" Margin="10,0,0,0" SelectionChanged="ColdBoosting_SpellName_cb_SelectionChanged">
+							<ComboBox.ItemTemplate>
+								<DataTemplate>
+									<TextBlock Text="{Binding SpellName}"/>
+								</DataTemplate>
+							</ComboBox.ItemTemplate>
+						</ComboBox>
+						<TextBox x:Name="ColdBoosting_DammageSpell_textbox" Width="60" Watermark="Урон" Margin="10,0,0,0" TextChanged="DammageSpell_textbox_TextChanged" />
 						<TextBlock Text="×" VerticalAlignment="Center" Margin="10,0,0,0"/>
-						<ComboBox x:Name="ColdBoosting_Consumables_cb" Width="150" Margin="10,0,0,0" materialDesign:HintAssist.Hint="Расходник" SelectedIndex="0" SelectionChanged="Consumables_cb_SelectionChanged">
+						<ComboBox x:Name="ColdBoosting_Consumables_cb" Width="150" Margin="10,0,0,0" PlaceholderText="Расходник" SelectedIndex="0" SelectionChanged="Consumables_cb_SelectionChanged">
 							<ComboBoxItem Content="Кровь [1.41]"/>
 							<ComboBoxItem Content="Души [2.03]"/>
 							<ComboBoxItem Content="Страдания [2.29]"/>
@@ -32,10 +47,10 @@
 					<StackPanel Orientation="Horizontal">
 						<TextBlock Text="22 ×" Margin="10,0,0,0" VerticalAlignment="Center" TextAlignment="Center"/>
 						<TextBlock Text="(" Margin="5,0,0,0" VerticalAlignment="Center"/>
-						<TextBox x:Name="GiftOfHealing_quantity_textbox" Width="42" TextAlignment="Center" materialDesign:HintAssist.Hint="Кол-во" Margin="10,0,0,0" DataObject.Pasting="GiftOfHealing_quantity_textbox_Pasting" PreviewTextInput="GiftOfHealing_quantity_textbox_PreviewTextInput" TextChanged="GiftOfHealing_quantity_textbox_TextChanged"/>
+						<TextBox x:Name="GiftOfHealing_quantity_textbox" Width="42" TextAlignment="Center" Watermark="Кол-во" Margin="10,0,0,0" TextChanged="GiftOfHealing_quantity_textbox_TextChanged"/>
 						<TextBlock Text="+ 1 )" Margin="10,0,0,0" VerticalAlignment="Center"/>
 						<TextBlock Text="×" VerticalAlignment="Center" Margin="10,0,0,0"/>
-						<ComboBox x:Name="GiftOfHealing_Consumables_cb" Width="150" Margin="10,0,0,0" materialDesign:HintAssist.Hint="Расходник" SelectedIndex="0" SelectionChanged="GiftOfHealing_Consumables_cb_SelectionChanged">
+						<ComboBox x:Name="GiftOfHealing_Consumables_cb" Width="150" Margin="10,0,0,0" PlaceholderText="Расходник" SelectedIndex="0" SelectionChanged="GiftOfHealing_Consumables_cb_SelectionChanged">
 							<ComboBoxItem Content="Кровь [1.41]"/>
 							<ComboBoxItem Content="Души [2.03]"/>
 							<ComboBoxItem Content="Страдания [2.29]"/>
@@ -51,10 +66,10 @@
 					<StackPanel Orientation="Horizontal">
 						<TextBlock Text="30 ×" Margin="10,0,0,0" VerticalAlignment="Center" TextAlignment="Center"/>
 						<TextBlock Text="(" Margin="5,0,0,0" VerticalAlignment="Center"/>
-						<TextBox x:Name="GiftOfDark_quantity_textbox" Width="42" TextAlignment="Center" materialDesign:HintAssist.Hint="Кол-во" Margin="10,0,0,0" PreviewTextInput="GiftOfDark_quantity_textbox_PreviewTextInput" DataObject.Pasting="GiftOfDark_quantity_textbox_Pasting" TextChanged="GiftOfDark_quantity_textbox_TextChanged"/>
+						<TextBox x:Name="GiftOfDark_quantity_textbox" Width="42" TextAlignment="Center" Watermark="Кол-во" Margin="10,0,0,0" TextChanged="GiftOfDark_quantity_textbox_TextChanged"/>
 						<TextBlock Text="+ 1 )" Margin="10,0,0,0" VerticalAlignment="Center"/>
 						<TextBlock Text="×" VerticalAlignment="Center" Margin="10,0,0,0"/>
-						<ComboBox x:Name="GiftOfDark_Consumables_cb" Width="150" Margin="10,0,0,0" materialDesign:HintAssist.Hint="Расходник" SelectedIndex="0" SelectionChanged="GiftOfDark_Consumables_cb_SelectionChanged">
+						<ComboBox x:Name="GiftOfDark_Consumables_cb" Width="150" Margin="10,0,0,0" PlaceholderText="Расходник" SelectedIndex="0" SelectionChanged="GiftOfDark_Consumables_cb_SelectionChanged">
 							<ComboBoxItem Content="Кровь [1.41]"/>
 							<ComboBoxItem Content="Души [2.03]"/>
 							<ComboBoxItem Content="Страдания [2.29]"/>

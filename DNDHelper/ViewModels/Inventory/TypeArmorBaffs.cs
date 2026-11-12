@@ -1,25 +1,20 @@
-﻿using DNDHelper.Modules.Character;
-using DNDHelper.Modules.Settings;
-using DNDHelper.Modules.Сharacteristics;
-using DNDHelper.Windows;
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
+﻿using Avalonia.Controls;
+using DNDHelper.ViewModels.Settings;
+using DNDHelper.ViewModels.Сharacteristics;
+using DNDHelper.Views;
 
-namespace DNDHelper.Modules.Inventory
+namespace DNDHelper.ViewModels.Inventory
 {
     internal class TypeArmorBaffs
     {
-        Main main = Main.Instance;
+        MainWindow main = MainWindow.Instance;
 
         public TypeArmorBaffs()
         {
             main.armor_type_cb.SelectionChanged += Armor_type_cb_SelectionChanged;
         }
 
-        private void Armor_type_cb_SelectionChanged(object sender, System.Windows.Controls.SelectionChangedEventArgs e)
+        private void Armor_type_cb_SelectionChanged(object sender, SelectionChangedEventArgs e)
         {
             SetArmor(main.armor_type_cb.SelectedIndex);
         }
@@ -49,10 +44,10 @@ namespace DNDHelper.Modules.Inventory
                     break;
                 case 2:
                     Agility = -4;
-                    Attack = -2;                  
+                    Attack = -2;
                     CounterAction = -2;
 
-                    if(DataManager.DataSave.SelectedRepository == SetRepository.repositories[0].Name)
+                    if (DataManager.DataSave.SelectedRepository == SetRepository.repositories[0].Name)
                         Block = 2;
                     else
                         Block = 1;

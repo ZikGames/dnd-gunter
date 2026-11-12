@@ -1,19 +1,20 @@
-﻿using DNDHelper.Modules.Settings;
-using DNDHelper.Windows;
+﻿using Avalonia.Interactivity;
+using DNDHelper.ViewModels.Settings;
+using DNDHelper.Views;
 
-namespace DNDHelper.Modules.Character
+namespace DNDHelper.ViewModels.Character
 {
 
     class Level
     {
         public Level()
         {
-            Main.Instance.pluslevel.Click += Pluslevel_Click;
-            Main.Instance.minuslevel.Click += Minuslevel_Click;
-            Main.Instance.сharacter_level_textblcok.Text = LevelBaffs.Level.ToString();
+            MainWindow.Instance.pluslevel.Click += Pluslevel_Click;
+            MainWindow.Instance.minuslevel.Click += Minuslevel_Click;
+            MainWindow.Instance.сharacter_level_textblcok.Text = LevelBaffs.Level.ToString();
         }
 
-        private void Minuslevel_Click(object sender, System.Windows.RoutedEventArgs e)
+        private void Minuslevel_Click(object sender, RoutedEventArgs e)
         {
             if (LevelBaffs.Level > 1)
             {
@@ -22,7 +23,7 @@ namespace DNDHelper.Modules.Character
             }
         }
 
-        private void Pluslevel_Click(object sender, System.Windows.RoutedEventArgs e)
+        private void Pluslevel_Click(object sender, RoutedEventArgs e)
         {
             if (LevelBaffs.Level < 20)
             {
@@ -134,9 +135,9 @@ namespace DNDHelper.Modules.Character
 
 
 
-            Main.Characteristics.FindAVariableCharacteristic(28);
-            Main.Instance.сharacter_level_textblcok.Text = LevelBaffs.Level.ToString();
-            Main.TreeSkillsScript.UpdateTreeLevel();
+            MainWindow.Characteristics.FindAVariableCharacteristic(28);
+            MainWindow.Instance.сharacter_level_textblcok.Text = LevelBaffs.Level.ToString();
+            MainWindow.TreeSkillsScript.UpdateTreeLevel();
         }
     }
 

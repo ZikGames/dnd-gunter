@@ -1,15 +1,48 @@
-<Application xmlns="https://github.com/avaloniaui"
+﻿<Application xmlns="https://github.com/avaloniaui"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-             x:Class="DNDHelper.App"
              xmlns:local="using:DNDHelper"
-             RequestedThemeVariant="Default">
-             <!-- "Default" ThemeVariant follows system theme variant. "Dark" or "Light" are other available options. -->
+             xmlns:themes="clr-namespace:Material.Styles.Themes;assembly=Material.Styles"
+             xmlns:materialIcons="clr-namespace:Material.Icons.Avalonia;assembly=Material.Icons.Avalonia"
+             x:Class="DNDHelper.App"
+             RequestedThemeVariant="Dark">
 
     <Application.DataTemplates>
-        <local:ViewLocator/>
+        <local:ViewLocator />
     </Application.DataTemplates>
-  
+
+    <Application.Resources>
+        <SolidColorBrush x:Key="CustomBackgroundBrush" Color="#FF121212" />
+    </Application.Resources>
+
     <Application.Styles>
-        <FluentTheme />
+        <themes:MaterialTheme BaseTheme="Dark" PrimaryColor="DeepOrange" SecondaryColor="Green" />
+
+        <!-- Без этого MaterialIcon рендерится пустым (нет геометрии иконки) — обязательно
+             для версии пакета 2.0.0+ (см. Material.Icons.Avalonia README). -->
+        <materialIcons:MaterialIconStyles />
+
+        <!-- Без темы DataGrid (отдельный пакет Avalonia.Controls.DataGrid) все таблицы
+             рендерятся пустыми: нет шаблона, ни заголовков, ни строк.
+             Штатный Themes/Fluent.xaml из пакета здесь НЕ подходит: он ссылается на ресурсы
+             FluentTheme (SystemControlTransparentBrush и др.), которых нет в Material.Avalonia,
+             и приложение падает при первом показе таблицы. Вместо него - копия темы с
+             недостающими ресурсами: Themes/DataGridMaterial.axaml. -->
+        <StyleInclude Source="/Themes/DataGridMaterial.axaml" />
+
+        <!-- Обязательно для ae:TextEditor (дневник, MainWindow.axaml) — без этого
+             AvaloniaEdit рендерится вообще без стилей (нет фона, курсора и т.д.).
+             Пакет всегда даёт только Fluent-вариант стилей (Material-варианта нет),
+             подключается независимо от вашей основной темы (Material.Avalonia выше) —
+             это нормально, они не конфликтуют, просто у TextEditor будет немного другой
+             визуальный акцент, чем у остального Material-интерфейса. -->
+        <!-- Штатный avares://AvaloniaEdit/Themes/Fluent/AvaloniaEdit.xaml тоже требует ресурсы
+             FluentTheme (ControlContentThemeFontSize, ToolTipBackground, ControlTheme Button и т.д.)
+             и роняет приложение при первом показе дневника. Вместо него - адаптированная копия. -->
+        <StyleInclude Source="/Themes/AvaloniaEditMaterial.axaml" />
+
+        <Style Selector="Window">
+            <Setter Property="Background" Value="{DynamicResource CustomBackgroundBrush}" />
+        </Style>
+
     </Application.Styles>
 </Application>

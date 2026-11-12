@@ -1,23 +1,30 @@
-﻿using DNDHelper.Modules.Character;
-using DNDHelper.Modules.Settings;
-using DNDHelper.Windows;
+﻿using Avalonia;
+using Avalonia.Controls;
+using Avalonia.Input;
+using Avalonia.Interactivity;
+using Avalonia.Input.Platform; // Avalonia 12: SetTextAsync стал extension-методом (ClipboardExtensions),
+                                // GetTextAsync вообще переименован в TryGetTextAsync (nullable string)
+using Avalonia.Media;
+using Avalonia.VisualTree;
+using DNDHelper.ViewModels.Character;
+using DNDHelper.ViewModels.Settings;
+using DNDHelper.Views;
+using MsBox.Avalonia;
+using MsBox.Avalonia.Enums;
+using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.ComponentModel;
 using System.Linq;
 using System.Runtime.CompilerServices;
 using System.Text.Json;
 using System.Text.Json.Serialization;
-using System.Windows;
-using System.Windows.Controls;
-using System.Windows.Input;
-using System.Windows.Media;
-using static DNDHelper.Modules.Inventory.ItemBaffsListScript;
+using static DNDHelper.ViewModels.Inventory.ItemBaffsListScript;
 
-namespace DNDHelper.Modules.Inventory
+namespace DNDHelper.ViewModels.Inventory
 {
     public class InventoryLoot
     {
-        Main main = Main.Instance;
+        MainWindow main = MainWindow.Instance;
 
         public static ObservableCollection<InventoryItem> InventoryItems => DataManager.DataSave.Inventory;
 
@@ -28,11 +35,15 @@ namespace DNDHelper.Modules.Inventory
 
             main.DataGridInventory.BeginningEdit += DataGridInventory_BeginningEdit;
             main.DataGridInventory.CellEditEnding += DataGridInventory_CellEditEnding; ;
-            main.DataGridInventory.PreviewMouseLeftButtonDown += DataGridInventory_PreviewMouseLeftButtonDown;
-            main.DataGridInventory.PreviewMouseRightButtonDown += DataGridInventory_PreviewMouseRightButtonDown;
+
+            // WPF PreviewMouseLeftButtonDown / PreviewMouseRightButtonDown -> тоннелируемый
+            // PointerPressed, кнопка определяется внутри через PointerPointProperties (см. ниже).
+            main.DataGridInventory.AddHandler(InputElement.PointerPressedEvent, DataGridInventory_PreviewMouseLeftButtonDown, Avalonia.Interactivity.RoutingStrategies.Tunnel);
+            main.DataGridInventory.AddHandler(InputElement.PointerPressedEvent, DataGridInventory_PreviewMouseRightButtonDown, Avalonia.Interactivity.RoutingStrategies.Tunnel);
+
             main.DataGridInventory.SelectionChanged += DataGridInventory_SelectionChanged;
             main.DescriptionTextBox.TextChanged += DescriptionTextBox_TextChanged;
-            main.DataGridInventory.ContextMenuOpening += DataGridInventory_ContextMenuOpening;
+            main.DataGridInventory.ContextMenu!.Opening += (_, _) => DataGridInventory_ContextMenuOpening();
             main.AddMenuItem.Click += AddMenuItem_Click;
             main.DeleteMenuItem.Click += DeleteMenuItem_Click;
             main.CopyMenuItem.Click += CopyMenuItem_Click;
@@ -50,35 +61,34 @@ namespace DNDHelper.Modules.Inventory
             DataManager.Save();
         }
 
-        private void DataGridInventory_ContextMenuOpening(object sender, ContextMenuEventArgs e)
+        private void DataGridInventory_ContextMenuOpening()
         {
             int selectedIndex = main.DataGridInventory.SelectedIndex;
             if (selectedIndex != -1)
             {
-                main.AddMenuItem.Visibility = Visibility.Visible;
-                main.DeleteMenuItem.Visibility = Visibility.Visible;
-                main.CopyMenuItem.Visibility = Visibility.Visible;
+                main.AddMenuItem.IsVisible = true;
+                main.DeleteMenuItem.IsVisible = true;
+                main.CopyMenuItem.IsVisible = true;
             }
             else
             {
-                main.AddMenuItem.Visibility = Visibility.Visible;
-                main.DeleteMenuItem.Visibility = Visibility.Collapsed;
-                main.CopyMenuItem.Visibility = Visibility.Collapsed;
+                main.AddMenuItem.IsVisible = true;
+                main.DeleteMenuItem.IsVisible = false;
+                main.CopyMenuItem.IsVisible = false;
             }
         }
 
-        private void DeleteMenuItem_Click(object sender, RoutedEventArgs e)
+        private async void DeleteMenuItem_Click(object sender, RoutedEventArgs e)
         {
             int selectedIndex = main.DataGridInventory.SelectedIndex;
             if (selectedIndex != -1)
             {
                 int selectedCount = main.DataGridInventory.SelectedItems.Count;
-                MessageBoxResult result;
-                if (selectedCount == 1)
-                    result = MessageBox.Show($"Вы точно хотите удалить предмет: {InventoryItems[selectedIndex].Name}", "Удалить предмет", MessageBoxButton.YesNo);
-                else
-                    result = MessageBox.Show($"Вы точно хотите удалить {selectedCount} предметов", "Удалить предметы", MessageBoxButton.YesNo);
-                if (result == MessageBoxResult.Yes)
+                var box = selectedCount == 1
+                    ? MessageBoxManager.GetMessageBoxStandard("Удалить предмет", $"Вы точно хотите удалить предмет: {InventoryItems[selectedIndex].Name}", ButtonEnum.YesNo)
+                    : MessageBoxManager.GetMessageBoxStandard("Удалить предметы", $"Вы точно хотите удалить {selectedCount} предметов", ButtonEnum.YesNo);
+                var result = await box.ShowAsync();
+                if (result == ButtonResult.Yes)
                     for (int i = 0; i < selectedCount; i++)
                     {
                         InventoryItems.RemoveAt(main.DataGridInventory.SelectedIndex);
@@ -91,7 +101,7 @@ namespace DNDHelper.Modules.Inventory
             InventoryItems.Add(new InventoryItem());
         }
 
-        private void CopyMenuItem_Click(object sender, RoutedEventArgs e)
+        private async void CopyMenuItem_Click(object sender, RoutedEventArgs e)
         {
             int selectedIndex = main.DataGridInventory.SelectedIndex;
             List<InventoryItem> selectedItems = new();
@@ -100,19 +110,28 @@ namespace DNDHelper.Modules.Inventory
                 int selectedCount = main.DataGridInventory.SelectedItems.Count;
                 foreach (var selectedItem in main.DataGridInventory.SelectedItems)
                 {
-                    int index = main.DataGridInventory.Items.IndexOf(selectedItem);
+                    int index = InventoryItems.IndexOf(selectedItem as InventoryItem);
                     var item = InventoryItems[index];
                     selectedItems.Add(item);
                 }
             }
 
             string jsontext = JsonSerializer.Serialize(selectedItems);
-            Clipboard.SetText(jsontext);
+
+            // WPF Clipboard.SetText - синхронный статический класс. В Avalonia буфер обмена
+            // доступен только асинхронно, через TopLevel (см. шпаргалку п.5).
+            var clipboard = TopLevel.GetTopLevel(main)?.Clipboard;
+            if (clipboard != null)
+                await clipboard.SetTextAsync(jsontext);
         }
 
-        private void PasteMenuItem_Click(object sender, RoutedEventArgs e)
+        private async void PasteMenuItem_Click(object sender, RoutedEventArgs e)
         {
-            string pasteText = Clipboard.GetText();
+            var clipboard = TopLevel.GetTopLevel(main)?.Clipboard;
+            if (clipboard == null)
+                return;
+
+            string? pasteText = await clipboard.TryGetTextAsync();
             try
             {
                 var pasteItems = JsonSerializer.Deserialize<List<InventoryItem>>(pasteText);
@@ -224,15 +243,20 @@ namespace DNDHelper.Modules.Inventory
             }
 		}
 
-        private void DataGridInventory_PreviewMouseLeftButtonDown(object sender, System.Windows.Input.MouseButtonEventArgs e)
+        private void DataGridInventory_PreviewMouseLeftButtonDown(object sender, PointerPressedEventArgs e)
         {
-            var cell = FindParent<DataGridCell>(e.OriginalSource as DependencyObject);
+            if (!e.GetCurrentPoint(main.DataGridInventory).Properties.IsLeftButtonPressed)
+                return;
+
+            var cell = FindParent<DataGridCell>(e.Source as Visual);
             main.DataGridInventory.IsReadOnly = false;
 
-            if (cell != null && !cell.IsEditing)
+            // DataGridCell в Avalonia не имеет свойства IsEditing (в отличие от WPF) —
+            // условие упрощено, проверяем только что клик пришёлся по реальной ячейке.
+            if (cell != null)
             {
-                bool isCtrlPressed = Keyboard.IsKeyDown(Key.LeftCtrl) || Keyboard.IsKeyDown(Key.RightCtrl);
-                bool isShiftPressed = Keyboard.IsKeyDown(Key.LeftShift) || Keyboard.IsKeyDown(Key.RightShift);
+                bool isCtrlPressed = e.KeyModifiers.HasFlag(KeyModifiers.Control);
+                bool isShiftPressed = e.KeyModifiers.HasFlag(KeyModifiers.Shift);
 
                 if (e.ClickCount == 1)
                 {
@@ -254,32 +278,35 @@ namespace DNDHelper.Modules.Inventory
             else
                 main.DataGridInventory.SelectedIndex = -1;
         }
-        private void DataGridInventory_PreviewMouseRightButtonDown(object sender, MouseButtonEventArgs e)
+        private void DataGridInventory_PreviewMouseRightButtonDown(object sender, PointerPressedEventArgs e)
         {
-            var cell = FindParent<DataGridCell>(e.OriginalSource as DependencyObject);
+            if (!e.GetCurrentPoint(main.DataGridInventory).Properties.IsRightButtonPressed)
+                return;
+
+            var cell = FindParent<DataGridCell>(e.Source as Visual);
 
             if (cell == null)
                 main.DataGridInventory.SelectedIndex = -1;
 
         }
 
-        public static T FindParent<T>(DependencyObject child) where T : DependencyObject
+        public static T FindParent<T>(Visual child) where T : Visual
         {
             while (child != null && !(child is T))
             {
-                child = VisualTreeHelper.GetParent(child);
+                child = child.GetVisualParent();
             }
             return child as T;
         }
 
-        private void DataGridInventory_BeginningEdit(object? sender, System.Windows.Controls.DataGridBeginningEditEventArgs e)
+        private void DataGridInventory_BeginningEdit(object? sender, DataGridBeginningEditEventArgs e)
         {
             ShowOriginalValue(e.Column.DisplayIndex, e.Row.GetIndex());
         }
 
         private void DataGridInventory_CellEditEnding(object? sender, DataGridCellEditEndingEventArgs e)
         {
-            if (e.EditingElement is System.Windows.Controls.TextBox textBox)
+            if (e.EditingElement is TextBox textBox)
             {
                 string newValue = textBox.Text;
 
@@ -580,7 +607,7 @@ namespace DNDHelper.Modules.Inventory
                 {
                     _kd = value;
                     WholeKD = (int)_kd;
-                    if (Main.Instance.backpack_cb.SelectedIndex >= 3 && Main.Instance.backpack_quantity_cb.SelectedIndex != 0)
+                    if (MainWindow.Instance.backpack_cb.SelectedIndex >= 3 && MainWindow.Instance.backpack_quantity_cb.SelectedIndex != 0)
                         WeightScript.CountWeightItems();
                     OnPropertyChanged();
                 }
@@ -602,9 +629,9 @@ namespace DNDHelper.Modules.Inventory
                 }
             }
 
-            private Brush _foreColorWeight = new SolidColorBrush(Settings.Settings.SelectedTheme[1]);
+            private IBrush _foreColorWeight = new SolidColorBrush(Settings.Settings.SelectedTheme[1]);
             [JsonIgnore]
-            public Brush ForeColorWeight
+            public IBrush ForeColorWeight
             {
                 get => _foreColorWeight;
                 set
@@ -631,9 +658,9 @@ namespace DNDHelper.Modules.Inventory
             public string Description { get; set; }
 
 
-            private Brush _foreColorKD = new SolidColorBrush(Settings.Settings.SelectedTheme[1]);
+            private IBrush _foreColorKD = new SolidColorBrush(Settings.Settings.SelectedTheme[1]);
             [JsonIgnore]
-            public Brush ForeColorKD
+            public IBrush ForeColorKD
             {
                 get => _foreColorKD;
                 set
@@ -667,9 +694,9 @@ namespace DNDHelper.Modules.Inventory
                 }
             }
 
-            private Brush _foreColorKDEquipped = new SolidColorBrush(Settings.Settings.SelectedTheme[1]);
+            private IBrush _foreColorKDEquipped = new SolidColorBrush(Settings.Settings.SelectedTheme[1]);
             [JsonIgnore]
-            public Brush ForeColorKDEquipped
+            public IBrush ForeColorKDEquipped
             {
                 get => _foreColorKDEquipped;
                 set
@@ -690,7 +717,7 @@ namespace DNDHelper.Modules.Inventory
                         ForeColorKDEquipped = new SolidColorBrush(Settings.Settings.SelectedTheme[1]);
                     else
                         ForeColorKDEquipped = Brushes.Firebrick;
-                    Main.ItemBaffsListScript.UpdateValues();
+                    MainWindow.ItemBaffsListScript.UpdateValues();
                     KDScript.CountKD();
                     OnPropertyChanged();
                 }

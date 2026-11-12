@@ -1,39 +1,39 @@
-﻿using DNDHelper.Modules.Config;
-using DNDHelper.Modules.Inventory;
-using DNDHelper.Modules.Settings;
-using DNDHelper.Windows;
+﻿using Avalonia.Controls;
+using Avalonia.Input;
+using DNDHelper.ViewModels.Config;
+using DNDHelper.ViewModels.Inventory;
+using DNDHelper.ViewModels.Settings;
+using DNDHelper.Views;
 using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.ComponentModel;
-using System.Diagnostics;
 using System.IO;
 using System.Linq;
 using System.Runtime.CompilerServices;
-using System.Text;
 using System.Text.Json;
 using System.Text.Json.Serialization;
-using System.Threading.Tasks;
-using System.Windows;
-using System.Windows.Controls;
 
-namespace DNDHelper.Modules.Character
-{   
+namespace DNDHelper.ViewModels.Character
+{
     public class DamageCalculator
     {
         private ObservableCollection<TypeDamage> typeDamages { get; set; } = new();
-        Main main = Main.Instance;
+        MainWindow main = MainWindow.Instance;
         public static Dictionary<string, List<TypeDamageConfig>> data = new();
 
 
-        public DamageCalculator() 
+        public DamageCalculator()
         {
             main.DamageGrid.ItemsSource = typeDamages;
 
-            main.DamageGrid.ContextMenuOpening += DamageGrid_ContextMenuOpening;
+            // WPF DataGrid.ContextMenuOpening -> Avalonia ContextMenu.Opening. Не Control.ContextRequested:
+            // ContextMenu сам обрабатывает это событие и помечает его Handled раньше обработчика
+            // с обычной подпиской, так что видимость пунктов меню не обновлялась бы.
+            main.DamageGrid.ContextMenu!.Opening += (_, _) => DamageGrid_ContextMenuOpening();
             main.AddTypeDamage.Click += AddTypeDamage_Click;
             main.DeleteTypeDamage.Click += DeleteTypeDamage_Click;
-            main.CountDamage_button.MouseLeftButtonDown += CountDamage_button_MouseLeftButtonDown;
+            main.CountDamage_button.PointerPressed += CountDamage_button_PointerPressed;
 
             Update();
         }
@@ -41,7 +41,7 @@ namespace DNDHelper.Modules.Character
 
         public static void Update()
         {
-            string pathFile = Main.PathMain + $"Cache/{DataManager.DataSave.SelectedRepository}/TypeDamage.json";
+            string pathFile = MainWindow.PathData + $"Cache/{DataManager.DataSave.SelectedRepository}/TypeDamage.json";
             if (File.Exists(pathFile))
             {
                 string json = File.ReadAllText(pathFile);
@@ -55,7 +55,7 @@ namespace DNDHelper.Modules.Character
                 {
                     data = JsonSerializer.Deserialize<Dictionary<string, List<TypeDamageConfig>>>(json, options);
                 }
-                catch (Exception ex) 
+                catch (Exception)
                 {
                     data = new();
                 }
@@ -63,34 +63,37 @@ namespace DNDHelper.Modules.Character
             }
         }
 
-        private void CountDamage_button_MouseLeftButtonDown(object sender, System.Windows.Input.MouseButtonEventArgs e)
+        private void CountDamage_button_PointerPressed(object sender, PointerPressedEventArgs e)
         {
+            if (!e.GetCurrentPoint(main.CountDamage_button).Properties.IsLeftButtonPressed)
+                return;
+
             Calculate();
         }
 
-        private void DamageGrid_ContextMenuOpening(object sender, ContextMenuEventArgs e)
+        private void DamageGrid_ContextMenuOpening()
         {
             int selectedIndex = main.DamageGrid.SelectedIndex;
             if (selectedIndex != -1)
             {
-                main.AddTypeDamage.Visibility = Visibility.Visible;
-                main.DeleteTypeDamage.Visibility = Visibility.Visible;
+                main.AddTypeDamage.IsVisible = true;
+                main.DeleteTypeDamage.IsVisible = true;
             }
             else
             {
-                main.AddTypeDamage.Visibility = Visibility.Visible;
-                main.DeleteTypeDamage.Visibility = Visibility.Collapsed;
+                main.AddTypeDamage.IsVisible = true;
+                main.DeleteTypeDamage.IsVisible = false;
             }
         }
 
-        private void DeleteTypeDamage_Click(object sender, System.Windows.RoutedEventArgs e)
+        private void DeleteTypeDamage_Click(object sender, Avalonia.Interactivity.RoutedEventArgs e)
         {
             int selectedIndex = main.DamageGrid.SelectedIndex;
             if (selectedIndex != -1)
                 typeDamages.RemoveAt(selectedIndex);
         }
 
-        private void AddTypeDamage_Click(object sender, System.Windows.RoutedEventArgs e)
+        private void AddTypeDamage_Click(object sender, Avalonia.Interactivity.RoutedEventArgs e)
         {
             typeDamages.Add(new TypeDamage());
         }
@@ -107,7 +110,7 @@ namespace DNDHelper.Modules.Character
             int USedKDBody = 0;
             int UsedKDMental = 0;
 
-            Dictionary<string, int> effects = new() { {"Кровотечение", 0}, {"Шок", 0}, {"Оглушение", 0}, { "Горение", 0 } };
+            Dictionary<string, int> effects = new() { { "Кровотечение", 0 }, { "Шок", 0 }, { "Оглушение", 0 }, { "Горение", 0 } };
 
             foreach (TypeDamage typeDamage in typeDamages)
             {
@@ -141,7 +144,7 @@ namespace DNDHelper.Modules.Character
                     {
 
                         // Счет магического щита
-                        if (Main.Instance.shield_health_textbox.Text != "" && Main.Instance.shield_health_textbox.Text != "0" && DataManager.DataSave.SelectedTypeMagicShield != -1 && Health.DamageMagicShield != Health.MaxMagicShield)
+                        if (!string.IsNullOrEmpty(MainWindow.Instance.shield_health_textbox.Text) && MainWindow.Instance.shield_health_textbox.Text != "0" && DataManager.DataSave.SelectedTypeMagicShield != -1 && Health.DamageMagicShield != Health.MaxMagicShield)
                             if (DataManager.DataSave.SelectedTypeMagicShield == indexDamageType || DataManager.DataSave.SelectedTypeMagicShield == 2)
                             {
                                 int hpSield = Health.MaxMagicShield - Health.DamageMagicShield;
@@ -223,7 +226,7 @@ namespace DNDHelper.Modules.Character
                 if (effect != 0) receivedEffect += $"\r\n{effectName}: {effect}";
             }
             if (receivedEffect != "")
-                main.DamageHealth_textblock.ToolTip = receivedEffect.Remove(0,2);
+                ToolTip.SetTip(main.DamageHealth_textblock, receivedEffect.Remove(0, 2));
 
             main.DamageHealth_textblock.Text = TotalDamage.ToString();
             Health.Damage += TotalDamage;
@@ -258,12 +261,12 @@ namespace DNDHelper.Modules.Character
                     effects["Шок"] += (int)(damage / damageInEffect);
                     break;
                 case "дробящий":
-                    if(Health.MaxHealth * 0.1 < damage)
-                    effects["Оглушение"] = 1;
+                    if (Health.MaxHealth * 0.1 < damage)
+                        effects["Оглушение"] = 1;
                     break;
                 case "огненный":
                     int stage = 0;
-                    if(damage >= 20 * GlobalMultiply.data.GlobalMultiply)
+                    if (damage >= 20 * GlobalMultiply.data.GlobalMultiply)
                         stage = 1;
                     if (damage >= 40 * GlobalMultiply.data.GlobalMultiply)
                         stage = 2;
@@ -272,8 +275,8 @@ namespace DNDHelper.Modules.Character
                     if (damage >= 400 * GlobalMultiply.data.GlobalMultiply)
                         stage = 4;
 
-                    if(effects["Горение"] < stage)
-                    effects["Горение"] = stage;
+                    if (effects["Горение"] < stage)
+                        effects["Горение"] = stage;
                     break;
             }
         }
@@ -298,12 +301,12 @@ namespace DNDHelper.Modules.Character
                 if (_nameType.Content != null)
                     if (typeDamageToolTip.Keys.Contains(_nameType.Content))
                     {
-                        VisibilityCheckBox = Visibility.Visible;
+                        VisibilityCheckBox = true;
                         TextCheckBox = typeDamageToolTip[_nameType.Content.ToString()];
                     }
-                    else 
+                    else
                     {
-                        VisibilityCheckBox = Visibility.Collapsed;
+                        VisibilityCheckBox = false;
                         CheckBox = false;
                     }
 
@@ -326,8 +329,10 @@ namespace DNDHelper.Modules.Character
             }
         }
 
-        private Visibility _visibilityCheckBox = Visibility.Collapsed;
-        public Visibility VisibilityCheckBox
+        // Было typeof(Visibility) (WPF) — в Avalonia у IsVisible (то, на что реально биндится
+        // в Main.axaml) уже bool, так что тип поменян на bool напрямую, имя оставлено как было.
+        private bool _visibilityCheckBox = false;
+        public bool VisibilityCheckBox
         {
             get => _visibilityCheckBox;
             set

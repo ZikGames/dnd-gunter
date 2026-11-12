@@ -1,24 +1,16 @@
-﻿using DNDHelper.Windows;
-using System;
+﻿using Avalonia.Controls;
+using Avalonia.Interactivity;
+using DNDHelper.Views;
 using System.Collections.Generic;
-using System.Collections.ObjectModel;
 using System.ComponentModel;
-using System.Diagnostics;
 using System.Linq;
-using System.Runtime.CompilerServices;
-using System.Security.AccessControl;
-using System.Text;
-using System.Threading.Tasks;
-using System.Windows;
-using System.Windows.Data;
-using System.Windows.Media;
-using static DNDHelper.Modules.Character.Skills;
+using static DNDHelper.ViewModels.Character.Skills;
 
-namespace DNDHelper.Modules.MagicSpells
+namespace DNDHelper.ViewModels.MagicSpells
 {
 	internal class MagicSearch
 	{
-		private static Main main = Main.Instance;
+		private static MainWindow main = MainWindow.Instance;
 		private static int rollSortState = 0;
 		private static string currentSortMember = null;
 		public MagicSearch()
@@ -37,12 +29,9 @@ namespace DNDHelper.Modules.MagicSpells
         }
 
 
-        private void DataGridAllSpells_Sorting(object sender, System.Windows.Controls.DataGridSortingEventArgs e)
+        private void DataGridAllSpells_Sorting(object sender, DataGridColumnEventArgs e)
 		{
 			e.Handled = true;
-
-			var grid = (System.Windows.Controls.DataGrid)sender;
-
 
 			if (currentSortMember != e.Column.SortMemberPath)
 			{
@@ -52,18 +41,16 @@ namespace DNDHelper.Modules.MagicSpells
 
 			rollSortState = (rollSortState == 1) ? 2 : 1;
 
-			foreach (var c in grid.Columns)
-				if (!ReferenceEquals(c, e.Column))
-					c.SortDirection = null;
-
-			e.Column.SortDirection = (rollSortState == 1)
-				? ListSortDirection.Ascending
-				: ListSortDirection.Descending;
+			// У классического Avalonia.Controls.DataGridColumn (в отличие от WPF и от
+			// TreeDataGridColumn) нет свойства SortDirection вообще — визуальную стрелку
+			// сортировки в заголовке колонки поставить нечем, но сама сортировка (через
+			// rollSortState/currentSortMember ниже, в CastsFilter) не зависит от него и
+			// работает как прежде.
 
 			CastsFilter();
 		}
 
-		private void DataGridCurrentSpells_Sorting(object sender, System.Windows.Controls.DataGridSortingEventArgs e)
+		private void DataGridCurrentSpells_Sorting(object sender, DataGridColumnEventArgs e)
 		{
 			DataGridAllSpells_Sorting(sender, e);
 		}
@@ -102,7 +89,7 @@ namespace DNDHelper.Modules.MagicSpells
 
 		private static void FilterName()
 		{
-			filtersSpellAll = filtersSpellAll.Where((x) => x.SpellName.ToLower().Contains(main.CastSearch_textbox.Text.ToLower())).ToList();
+			filtersSpellAll = filtersSpellAll.Where((x) => x.SpellName.ToLower().Contains((main.CastSearch_textbox.Text ?? "").ToLower())).ToList();
 
 			if (currentSortMember == nameof(Cast.SpellName))
 			{
@@ -199,12 +186,12 @@ namespace DNDHelper.Modules.MagicSpells
                 filtersSpellAll = filtersSpellAll.Where((x) => x.IsPack).ToList();
         }
 
-        private void SelectionChanged(object sender, System.Windows.Controls.SelectionChangedEventArgs e)
+        private void SelectionChanged(object sender, SelectionChangedEventArgs e)
 		{
 			CastsFilter();
 		}
 
-		private void CastSearch_textbox_TextChanged(object sender, System.Windows.Controls.TextChangedEventArgs e)
+		private void CastSearch_textbox_TextChanged(object sender, TextChangedEventArgs e)
 		{
 			CastsFilter();
 		}

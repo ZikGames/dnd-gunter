@@ -1,29 +1,22 @@
-﻿<Window x:Class="DNDHelper.Windows.About"
-        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+﻿<Window xmlns="https://github.com/avaloniaui"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
-        xmlns:local="clr-namespace:DNDHelper.Windows"
-		xmlns:materialDesign="http://materialdesigninxaml.net/winfx/xaml/themes"
-		Style="{StaticResource MaterialDesignWindow}"
+        xmlns:local="using:DNDHelper.Views"
+        x:Class="DNDHelper.Views.About"
         mc:Ignorable="d"
-        Title="О программе" Height="200" Width="250" ResizeMode="NoResize">
-    <Grid>
+        Title="О программе" Height="200" Width="250" CanResize="False">
+	<Grid>
 		<StackPanel VerticalAlignment="Center">
 			<StackPanel Orientation="Horizontal" VerticalAlignment="Center" HorizontalAlignment="Center">
-				<!--<Image Source="/Resources/dndhelper.ico" Margin="0,0,5,0" Width="15" Height="15" VerticalAlignment="Top"/>-->
+				<!--<Image Source="avares://DNDHelper/Assets/dndhelper.ico" Margin="0,0,5,0" Width="15" Height="15" VerticalAlignment="Top"/>-->
 				<TextBlock Text="D&amp;DHelper"/>
 			</StackPanel>
 			<StackPanel Orientation="Horizontal" HorizontalAlignment="Center">
 				<TextBlock Text="Разработчики:  "/>
-				<TextBlock Text="Chucapabra">
-					<Hyperlink NavigateUri="https://github.com/Chucapabra"/>
-				</TextBlock>
+				<HyperlinkButton Content="Chucapabra" NavigateUri="https://github.com/Chucapabra" Padding="0"/>
 				<TextBlock Text=",  "/>
-				<TextBlock Text="Gunter">
-					<Hyperlink NavigateUri="https://github.com/GunterSuperPenguin"/>
-				</TextBlock>
-				
+				<HyperlinkButton Content="Gunter" NavigateUri="https://github.com/GunterSuperPenguin" Padding="0"/>
 			</StackPanel>
 			<TextBlock x:Name="VersionTextBlock" Text="13.0+" VerticalAlignment="Center" HorizontalAlignment="Center"/>
 		</StackPanel>

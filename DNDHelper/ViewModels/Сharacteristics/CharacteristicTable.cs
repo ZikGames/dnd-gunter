@@ -1,13 +1,6 @@
-﻿using DNDHelper.Modules.Settings;
-using System;
-using System.Collections.Generic;
-using System.ComponentModel;
-using System.Dynamic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
+﻿using DNDHelper.ViewModels.Settings;
 
-namespace DNDHelper.Modules.Сharacteristics
+namespace DNDHelper.ViewModels.Сharacteristics
 {
     public static class CharacteristicTable
     {
@@ -98,5 +91,3 @@ namespace DNDHelper.Modules.Сharacteristics
         public static ref int OtherBaff(int index) => ref GetOtherBaffByIndex(index);
     }
 }
-
-

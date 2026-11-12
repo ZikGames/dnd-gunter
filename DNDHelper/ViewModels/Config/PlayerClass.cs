@@ -1,16 +1,17 @@
-﻿using DNDHelper.Modules.Character;
-using DNDHelper.Modules.MagicSpells;
-using DNDHelper.Modules.Settings;
-using DNDHelper.Modules.Сharacteristics;
-using DNDHelper.Windows;
-using System.Diagnostics;
+﻿using DNDHelper.ViewModels.Character;
+using DNDHelper.ViewModels.MagicSpells;
+using DNDHelper.ViewModels.Settings;
+using DNDHelper.ViewModels.Сharacteristics;
+using DNDHelper.Views;
+using System;
+using System.Collections.Generic;
 using System.IO;
 using System.Text.Json;
 using System.Text.Json.Serialization;
-using System.Windows.Controls;
-using static DNDHelper.Modules.Сharacteristics.CharacteristicTable;
+using Avalonia.Controls;
+using static DNDHelper.ViewModels.Сharacteristics.CharacteristicTable;
 
-namespace DNDHelper.Modules.Config
+namespace DNDHelper.ViewModels.Config
 {
     internal class PlayerClass
     {
@@ -24,7 +25,7 @@ namespace DNDHelper.Modules.Config
         public PlayerClass()
         {
 
-            Main.Instance.character_class_combobox.SelectionChanged += character_class_combobox_SelectionChanged;
+            MainWindow.Instance.character_class_combobox.SelectionChanged += character_class_combobox_SelectionChanged;
 
 
             ClearStats();
@@ -32,7 +33,7 @@ namespace DNDHelper.Modules.Config
 
         public static void Update()
         {
-            string pathFile = Main.PathMain + $"Cache/{DataManager.DataSave.SelectedRepository}/Class.json";
+            string pathFile = MainWindow.PathData + $"Cache/{DataManager.DataSave.SelectedRepository}/Class.json";
             if (File.Exists(pathFile))
             {
                 string json = File.ReadAllText(pathFile);
@@ -45,30 +46,30 @@ namespace DNDHelper.Modules.Config
                 try
                 {
                     data = JsonSerializer.Deserialize<Dictionary<string, List<ClassData>>>(json, options);
-                    Main.Instance.character_class_combobox.ItemsSource = data.Keys;
+                    MainWindow.Instance.character_class_combobox.ItemsSource = data.Keys;
                 }
                 catch
                 {
                     data = new();
                 }
 
-                
+
 
             }
             else
             {
-                Main.Instance.character_class_combobox.ItemsSource = null;
-                Main.Instance.character_class_textblock.Text = "[[Класс]]";
+                MainWindow.Instance.character_class_combobox.ItemsSource = null;
+                MainWindow.Instance.character_class_textblock.Text = "[[Класс]]";
             }
         }
 
         private void character_class_combobox_SelectionChanged(object sender, SelectionChangedEventArgs e)
         {
-            if (Main.Instance.character_class_combobox.SelectedValue != null)
+            if (MainWindow.Instance.character_class_combobox.SelectedValue != null)
             {
                 ClearStats();
 
-                string selectText = Main.Instance.character_class_combobox.SelectedValue.ToString();
+                string selectText = MainWindow.Instance.character_class_combobox.SelectedValue.ToString();
                 SelectedClassData = data[selectText][0];
 
                 foreach (var item in SelectedClassData.StandartStats[0])
@@ -83,11 +84,11 @@ namespace DNDHelper.Modules.Config
                     }
                 }
 
-                Main.TreeSkillsScript.SetClassTree();
+                MainWindow.TreeSkillsScript.SetClassTree();
 
-                Main.Characteristics.UpdateAllCharacterisitc();
+                MainWindow.Characteristics.UpdateAllCharacterisitc();
                 Health.HealthUpdate();
-                Main.Instance.character_class_textblock.Text = selectText;
+                MainWindow.Instance.character_class_textblock.Text = selectText;
                 MagicSpells.MagicSpells.UpdateMagicBullet();
 
                 UpdateCharacteristicMagic();
@@ -105,7 +106,7 @@ namespace DNDHelper.Modules.Config
 
         public static void UpdateCharacteristicMagic()
         {
-            if(DataManager.IsLoad)
+            if (DataManager.IsLoad)
                 return;
 
             int characterisitic;
@@ -169,5 +170,3 @@ namespace DNDHelper.Modules.Config
         public List<Dictionary<string, object>> Baffs { get; set; } = new();
     }
 }
-
-

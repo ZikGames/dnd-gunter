@@ -1,31 +1,27 @@
-﻿using DNDHelper.Modules.Config;
-using DNDHelper.Modules.Settings;
-using DNDHelper.Modules.Сharacteristics;
-using DNDHelper.Windows;
+﻿using Avalonia.Controls;
+using Avalonia.Input;
+using Avalonia.Interactivity;
+using DNDHelper.ViewModels.Config;
+using DNDHelper.ViewModels.Settings;
+using DNDHelper.ViewModels.Сharacteristics;
+using DNDHelper.Views;
 using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.ComponentModel;
-using System.Diagnostics;
 using System.IO;
 using System.Linq;
 using System.Runtime.CompilerServices;
-using System.Text;
 using System.Text.Json;
-using System.Text.Json.Serialization;
-using System.Threading.Tasks;
-using System.Windows;
-using System.Windows.Controls;
-using System.Windows.Media.Effects;
 
-namespace DNDHelper.Modules.Character
+namespace DNDHelper.ViewModels.Character
 {
     internal class Effects
     {
         public static Dictionary<string, Dictionary<int, List<Effect>>> data;
 
         private static ObservableCollection<EffectTable> effectsList => DataManager.DataSave.EffectTables;
-        private static Main main = Main.Instance;
+        private static MainWindow main = MainWindow.Instance;
 
         public static List<int[]> EffectBaffs = new(50);
         public static string[] StatNameRus = new[]
@@ -49,7 +45,7 @@ namespace DNDHelper.Modules.Character
 
             main.AddEffect.Click += AddEffect_Click;
             main.DeleteEffect.Click += DeleteEffect_Click;
-            main.DataGridStatusEffects.ContextMenuOpening += DataGridStatusEffects_ContextMenuOpening;
+            main.DataGridStatusEffects.ContextMenu!.Opening += (_, _) => DataGridStatusEffects_ContextMenuOpening();
 
             effectsList.CollectionChanged += EffectsList_CollectionChanged;
 
@@ -62,22 +58,22 @@ namespace DNDHelper.Modules.Character
             DataManager.Save();
         }
 
-        private void DataGridStatusEffects_ContextMenuOpening(object sender, ContextMenuEventArgs e)
+        private void DataGridStatusEffects_ContextMenuOpening()
         {
             int selectedIndex = main.DataGridStatusEffects.SelectedIndex;
             if (selectedIndex != -1)
             {
-                main.AddEffect.Visibility = Visibility.Visible;
-                main.DeleteEffect.Visibility = Visibility.Visible;
+                main.AddEffect.IsVisible = true;
+                main.DeleteEffect.IsVisible = true;
             }
             else
             {
-                main.AddEffect.Visibility = Visibility.Visible;
-                main.DeleteEffect.Visibility = Visibility.Collapsed;
+                main.AddEffect.IsVisible = true;
+                main.DeleteEffect.IsVisible = false;
             }
         }
 
-        private void DeleteEffect_Click(object sender, System.Windows.RoutedEventArgs e)
+        private void DeleteEffect_Click(object sender, RoutedEventArgs e)
         {
             int selectedIndex = main.DataGridStatusEffects.SelectedIndex;
             if (selectedIndex != -1)
@@ -87,14 +83,14 @@ namespace DNDHelper.Modules.Character
             }
         }
 
-        private void AddEffect_Click(object sender, System.Windows.RoutedEventArgs e)
+        private void AddEffect_Click(object sender, RoutedEventArgs e)
         {
             effectsList.Add(new EffectTable());
         }
 
         public static void Update()
         {
-             string pathFile = Main.PathMain + $"Cache/{DataManager.DataSave.SelectedRepository}/Effects.json";
+            string pathFile = MainWindow.PathData + $"Cache/{DataManager.DataSave.SelectedRepository}/Effects.json";
             if (File.Exists(pathFile))
             {
                 string json = File.ReadAllText(pathFile);
@@ -159,19 +155,27 @@ namespace DNDHelper.Modules.Character
                         }
                     }
                 }
-            Main.Characteristics.UpdateAllCharacterisitc();
+            MainWindow.Characteristics.UpdateAllCharacterisitc();
             AttributesCharacter.UpdateRolls();
             AttributesCharacter.StickMethod();
             KDScript.CountKD();
         }
 
 
-        public static void AddingLevelEffect(int number)
+        // Кнопки +/- лежат в ячейках DataGrid: в Avalonia они не выделяют строку, поэтому
+        // строку берём из DataContext кнопки, а выделение - запасной вариант.
+        public static void AddingLevelEffect(int number, object? rowItem = null)
         {
-            int selectedIndex = main.DataGridStatusEffects.SelectedIndex;
-            if(selectedIndex != -1) 
+            var row = rowItem as EffectTable;
+            if (row == null)
             {
-                effectsList[selectedIndex].Level += number;
+                int selectedIndex = main.DataGridStatusEffects.SelectedIndex;
+                if (selectedIndex >= 0 && selectedIndex < effectsList.Count)
+                    row = effectsList[selectedIndex];
+            }
+            if (row != null)
+            {
+                row.Level += number;
             }
         }
     }
@@ -273,7 +277,7 @@ namespace DNDHelper.Modules.Character
                     }
                 }
             }
-            
+
         }
 
         public event PropertyChangedEventHandler PropertyChanged;

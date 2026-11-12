@@ -1,27 +1,25 @@
-﻿using DNDHelper.Modules.Character;
-using DNDHelper.Modules.Config;
-using DNDHelper.Modules.Inventory;
-using DNDHelper.Windows;
+﻿using Avalonia.Controls;
+using Avalonia.Media;
+using DNDHelper.ViewModels.Character;
+using DNDHelper.ViewModels.Config;
+using DNDHelper.ViewModels.Inventory;
+using DNDHelper.Views;
+using MsBox.Avalonia;
+using MsBox.Avalonia.Enums;
 using System;
 using System.Collections.Generic;
-using System.ComponentModel;
-using System.Diagnostics;
 using System.IO;
-using System.Linq;
 using System.Net.Http;
-using System.Reflection;
-using System.Security.Cryptography.X509Certificates;
-using System.Text;
 using System.Threading.Tasks;
-using System.Windows;
-using System.Windows.Controls;
-using System.Windows.Media;
 
-namespace DNDHelper.Modules.Settings
+namespace DNDHelper.ViewModels.Settings
 {
     internal class SetRepository
     {
-        Windows.Settings settings = Windows.Settings.Instance;
+        // Имя поля "settings" намеренно с маленькой буквы и через полный Views.Settings —
+        // в этом же namespace (DNDHelper.ViewModels.Settings) уже есть класс Settings
+        // (цвета темы), без квалификатора компилятор резолвил бы не то.
+        Views.Settings settings = Views.Settings.Instance;
         public static string SelectedRepository
         {
             get => DataManager.DataSave.SelectedRepository;
@@ -35,7 +33,7 @@ namespace DNDHelper.Modules.Settings
         {
             new Repository { Name = "Санекхуек", Link = "https://raw.githubusercontent.com/Chucapabra/dnd/refs/heads/Settings"  },
             new Repository { Name = "Гунер", Link = "https://raw.githubusercontent.com/GunterSuperPenguin/dnd-configs-gunter/refs/heads/main"  },
-            new Repository { Name = "Жирный", Link = "https://raw.githubusercontent.com/Chucapabra/dnd/refs/heads/wh40k", Height = 60, FontSize = 25, FontWeight = FontWeights.Bold  }
+            new Repository { Name = "Жирный", Link = "https://raw.githubusercontent.com/Chucapabra/dnd/refs/heads/wh40k", Height = 60, FontSize = 25, FontWeight = FontWeight.Bold  }
         };
 
         public SetRepository()
@@ -48,9 +46,11 @@ namespace DNDHelper.Modules.Settings
 
         public static void UpdateListBox()
         {
-            for (int i = 0; i < Windows.Settings.Instance.ListProfiles.Items.Count; i++)
-            {            
-                var container = Windows.Settings.Instance.ListProfiles.ItemContainerGenerator.ContainerFromIndex(i) as ListBoxItem;
+            for (int i = 0; i < Views.Settings.Instance.ListProfiles.Items.Count; i++)
+            {
+                // WPF ItemContainerGenerator.ContainerFromIndex(i) -> в Avalonia у ItemsControl
+                // (и, соответственно, у ListBox) есть свой метод ContainerFromIndex(int) напрямую.
+                var container = Views.Settings.Instance.ListProfiles.ContainerFromIndex(i) as ListBoxItem;
                 if (container != null)
                 {
                     container.Height = repositories[i].Height;
@@ -66,14 +66,14 @@ namespace DNDHelper.Modules.Settings
             }
         }
 
-        private void SelectedRepository_Click(object sender, System.Windows.RoutedEventArgs e)
+        private void SelectedRepository_Click(object sender, Avalonia.Interactivity.RoutedEventArgs e)
         {
             if (settings.ListProfiles.SelectedIndex != -1)
             {
                 SelectedRepository = repositories[settings.ListProfiles.SelectedIndex].Name;
                 for (int i = 0; i < settings.ListProfiles.Items.Count; i++)
                 {
-                    var container = settings.ListProfiles.ItemContainerGenerator.ContainerFromIndex(i) as ListBoxItem;
+                    var container = settings.ListProfiles.ContainerFromIndex(i) as ListBoxItem;
                     if (container != null)
                         if (container.Content.ToString() == SelectedRepository)
                         {
@@ -95,7 +95,7 @@ namespace DNDHelper.Modules.Settings
             ManagerUrls.LoadUrls();
             Effects.Update();
             GlobalMultiply.Update();
-            TypeArmorBaffs.SetArmor(Main.Instance.armor_type_cb.SelectedIndex);
+            TypeArmorBaffs.SetArmor(MainWindow.Instance.armor_type_cb.SelectedIndex);
             DamageCalculator.Update();
         }
 
@@ -106,7 +106,7 @@ namespace DNDHelper.Modules.Settings
         private static string FileClass = "";
         private static string FileTypeDamage = "";
         private static string FileMultiplyGlobal = "";
-		private static string FileGlobalUrls = "";
+        private static string FileGlobalUrls = "";
         private static string FileEffects = "";
         public static async Task FileСonnection(bool check = false)
         {
@@ -122,7 +122,7 @@ namespace DNDHelper.Modules.Settings
             string classFileUrl = $"{Repos}/Class.json";
             string typeDamageFileUrl = $"{Repos}/TypesDamage.json";
             string globalMultiplyUrl = $"{Repos}/GlobalMultiply.json";
-			string globalUrls = $"{Repos}/urls.json";
+            string globalUrls = $"{Repos}/urls.json";
             string effectsUrl = $"{Repos}/Effects.json";
             using (HttpClient client = new HttpClient())
             {
@@ -159,12 +159,14 @@ namespace DNDHelper.Modules.Settings
                     FileMultiplyGlobal = tasks[3].Result;
                     FileTypeDamage = tasks[4].Result;
                     FileGlobalUrls = tasks[5].Result;
-                    FileEffects = tasks[6].Result;  
+                    FileEffects = tasks[6].Result;
                     CheckCacheFiles(check);
                 }
                 catch (HttpRequestException e)
                 {
-                    MessageBox.Show($"Ошибка соединения: {e}", "Ошибка", MessageBoxButton.OK, MessageBoxImage.Error);
+                    var box = MessageBoxManager.GetMessageBoxStandard(
+                        "Ошибка", $"Ошибка соединения: {e}", ButtonEnum.Ok, Icon.Error);
+                    await box.ShowAsync();
                 }
             }
         }
@@ -173,8 +175,8 @@ namespace DNDHelper.Modules.Settings
 
         public static void CheckCacheFiles(bool check = false)
         {
-            string[] pathMain = Assembly.GetExecutingAssembly().Location.Split('\\');
-            string path = Main.PathMain + $"Cache\\{SelectedRepository}\\";
+            // Кроссплатформенно вместо ручного "Cache\\..." (шпаргалка п.16).
+            string path = Path.Combine(MainWindow.PathData, "Cache", SelectedRepository) + Path.DirectorySeparatorChar;
 
             if (!Directory.Exists(path))
                 Directory.CreateDirectory(path);
@@ -184,19 +186,19 @@ namespace DNDHelper.Modules.Settings
             var class_ = CheckCacheFile("Class.json", FileClass, path);
             var typeDamage_ = CheckCacheFile("TypeDamage.json", FileTypeDamage, path);
             var multiplyGlobal_ = CheckCacheFile("MultiplyGlobal.json", FileMultiplyGlobal, path);
-			var globalUrls_ = CheckCacheFile("urls.json", FileGlobalUrls, path);
+            var globalUrls_ = CheckCacheFile("urls.json", FileGlobalUrls, path);
             var effects_ = CheckCacheFile("Effects.json", FileEffects, path);
             if (spell_ || race_ || class_ || typeDamage_ || multiplyGlobal_ || globalUrls_ || effects_)
             {
-				DataManager.Load(DataManager.SelectedSave);
-                MessageBox.Show("Конфиг обновлён.");
-			}
+                DataManager.Load(DataManager.SelectedSave);
+                MessageBoxManager.GetMessageBoxStandard("", "Конфиг обновлён.").ShowAsync();
+            }
             else if (check)
             {
-                MessageBox.Show("У вас актуальная версия конфига.");
+                MessageBoxManager.GetMessageBoxStandard("", "У вас актуальная версия конфига.").ShowAsync();
             }
 
-                
+
         }
 
         public static bool CheckCacheFile(string name, string content, string path)
@@ -229,13 +231,13 @@ namespace DNDHelper.Modules.Settings
 
         public string Link { get; set; }
 
-        public Brush Foreground { get; set; }
+        public IBrush Foreground { get; set; }
 
         public int Height { get; set; } = 45;
 
         public int FontSize { get; set; } = 20;
 
-        public FontWeight FontWeight { get; set; } = FontWeights.Normal;
+        public FontWeight FontWeight { get; set; } = FontWeight.Normal;
 
     }
 }

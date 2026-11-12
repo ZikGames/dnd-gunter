@@ -1,0 +1,25 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!-- Маленькая отдельная программа-установщик обновлений. Лежит в Updater/ рядом с DNDHelper/ (не внутри),
+       только BCL, без Avalonia: ждёт выхода основного приложения, подменяет папки DNDHelper/ и Updater/ из
+       скачанного архива (Data/ и portable.txt не трогает) и запускает новую версию. -->
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>   <!-- WinExe: на Windows не мигает консольным окном -->
+    <TargetFramework>net10.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <AssemblyName>DNDUpdater</AssemblyName>
+    <RootNamespace>DNDUpdater</RootNamespace>
+    <InvariantGlobalization>true</InvariantGlobalization>
+    <Version>0.0.0-dev</Version>
+  </PropertyGroup>
+
+  <!-- Параметры публикации: single-file и trimming включаются, когда задан RuntimeIdentifier (так его собирает release.yml) -->
+  <PropertyGroup Condition="'$(RuntimeIdentifier)' != ''">
+    <PublishSingleFile>true</PublishSingleFile>
+    <PublishTrimmed>true</PublishTrimmed>
+    <EnableCompressionInSingleFile>true</EnableCompressionInSingleFile>
+    <DebugType>None</DebugType>
+  </PropertyGroup>
+
+</Project>

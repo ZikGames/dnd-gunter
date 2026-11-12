@@ -1,13 +1,11 @@
-﻿ <Window x:Class="DNDHelper.Windows.Settings"
-        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+﻿<Window x:Class="DNDHelper.Views.Settings"
+        xmlns="https://github.com/avaloniaui"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
-        xmlns:local="clr-namespace:DNDHelper.Windows"
-		xmlns:materialDesign="http://materialdesigninxaml.net/winfx/xaml/themes"
-		Style="{StaticResource MaterialDesignWindow}"
+        xmlns:local="using:DNDHelper.Views"
         mc:Ignorable="d"
-        Title="Настройки" Height="300" Width="565" ResizeMode="NoResize">
+        Title="Настройки" Height="300" Width="565" CanResize="False">
 	<Grid>
 		<Grid.ColumnDefinitions>
 			<ColumnDefinition/>
@@ -24,21 +22,31 @@
 						<ColumnDefinition Width="*"/>
 						<ColumnDefinition Width="Auto"/>
 					</Grid.ColumnDefinitions>
+                    <!-- Кнопка не была подключена в XAML при портировании — обработчик
+                         AddProfile_Click существовал в code-behind, но был "осиротевшим".
+                         Сама реализация в code-behind — пока пустой стаб (как и было),
+                         логику добавления профиля/репозитория нужно дописать отдельно. -->
+                    <Button x:Name="AddProfileButton" Content="Добавить профиль" Grid.Row="0" Grid.Column="1" Click="AddProfile_Click"/>
                     <ListBox x:Name="ListProfiles" Grid.Row="2" Grid.Column="0" Grid.ColumnSpan="2">
-                        <ListBox.ItemContainerStyle>
-                            <Style TargetType="ListBoxItem" BasedOn="{StaticResource {x:Type ListBoxItem}}">
+                        <!--
+                            WPF ItemContainerStyle -> в Avalonia у ItemsControl нет такого свойства,
+                            а есть либо Styles-селектор (как ниже), либо ItemContainerTheme (ControlTheme).
+                            Взял вариант через .Styles — он проще и не требует отдельного ControlTheme.
+                        -->
+                        <ListBox.Styles>
+                            <Style Selector="ListBoxItem">
                                 <Setter Property="Height" Value="{Binding Height}"/>
                                 <Setter Property="FontSize" Value="{Binding FontSize}"/>
                                 <Setter Property="FontFamily" Value="Bahnschrift"/>
                                 <Setter Property="Foreground" Value="{Binding Foreground}"/>
                             </Style>
-                        </ListBox.ItemContainerStyle>
+                        </ListBox.Styles>
                     </ListBox>
                 </Grid>
 			</TabItem>
 			<TabItem Header="Программа">
 				<StackPanel>
-					<CheckBox Content="Движение текста при переполнении." Margin="5,5,0,5" Visibility="Collapsed"/>
+					<CheckBox Content="Движение текста при переполнении." Margin="5,5,0,5" IsVisible="False"/>
 					<StackPanel Orientation="Horizontal" Margin="5">
 						<TextBlock Text="Тема: " Margin="0,5,5,5"/>
 						<ComboBox Width="100" Height="30" x:Name="ComboBoxTheme" SelectionChanged="ComboBoxTheme_SelectionChanged">

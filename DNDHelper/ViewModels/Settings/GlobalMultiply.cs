@@ -1,16 +1,10 @@
-﻿using DNDHelper.Modules.Character;
-using DNDHelper.Modules.Config;
-using DNDHelper.Windows;
-using System;
-using System.Collections.Generic;
+﻿using DNDHelper.ViewModels.Character;
+using DNDHelper.Views;
 using System.Diagnostics;
 using System.IO;
-using System.Linq;
-using System.Text;
 using System.Text.Json;
-using System.Threading.Tasks;
 
-namespace DNDHelper.Modules.Settings
+namespace DNDHelper.ViewModels.Settings
 {
     class GlobalMultiply
     {
@@ -18,7 +12,7 @@ namespace DNDHelper.Modules.Settings
 
         public static void Update()
         {
-            string pathFile = Main.PathMain + $"Cache/{DataManager.DataSave.SelectedRepository}/MultiplyGlobal.json";
+            string pathFile = MainWindow.PathData + $"Cache/{DataManager.DataSave.SelectedRepository}/MultiplyGlobal.json";
             if (File.Exists(pathFile))
             {
                 Debug.WriteLine("sds");
